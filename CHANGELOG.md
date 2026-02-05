@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-02-05
 
+### Added
+- **Ticket Summary Section**: Sticky summary at the top of sidebar showing ticket ID, reporter, owner, dates, milestone, priority, severity, component, and keywords
+- **Slide-out Sidebar**: Click to completely hide/show sidebar with smooth animation
+- **Username Display**: Component maintainers now show @username alongside full name
+
 ### Changed
-- **UI Improvement**: Sidebar is now integrated into the page layout instead of floating over content. The sidebar uses `position: sticky` and adjusts the main content width, similar to Brave's Leo AI sidebar. This prevents the sidebar from covering ticket content when resizing the browser window.
-- Removed drag-and-drop functionality (no longer needed with integrated layout)
-- Sidebar width increased to 320px for better readability
+- **UI Improvement**: Sidebar is now integrated into the page layout instead of floating over content. The sidebar uses fixed positioning on the right edge and adjusts the main content width, similar to Brave's Leo AI sidebar
+- Removed drag-and-drop functionality (replaced with hide/show toggle)
+- Sidebar width increased to 340px for better readability
+- Renamed `test-simple.js` to `trac-sidebar.js` for better semantic meaning
 
 ## [1.0.1] - 2026-02-05
 

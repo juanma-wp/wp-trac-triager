@@ -19,7 +19,7 @@
       "js": [
         "data/keyword-data.js",
         "data/maintainers-data.js",
-        "content/test-simple.js"
+        "content/trac-sidebar.js"
       ],
       "css": [
         "content/styles.css"

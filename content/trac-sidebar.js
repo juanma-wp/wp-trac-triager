@@ -127,6 +127,57 @@ function highlightContributors(wpTracContributorLabels) {
   });
 }
 
+// Helper: Get ticket summary information
+function getTicketSummary() {
+  const summary = {};
+
+  // Ticket ID from URL or page title
+  const ticketLink = document.querySelector('.trac-id');
+  summary.id = ticketLink ? ticketLink.textContent.trim() : '';
+
+  // Reporter
+  const reporterElement = document.querySelector('#ticket td[headers="h_reporter"] a');
+  summary.reporter = reporterElement ? reporterElement.textContent.trim() : 'Unknown';
+
+  // Owner
+  const ownerElement = document.querySelector('#ticket td[headers="h_owner"] a');
+  summary.owner = ownerElement ? ownerElement.textContent.trim() : 'Unowned';
+
+  // Milestone
+  const milestoneElement = document.querySelector('#ticket td[headers="h_milestone"]');
+  summary.milestone = milestoneElement ? milestoneElement.textContent.trim() : '';
+
+  // Priority
+  const priorityElement = document.querySelector('#ticket td[headers="h_priority"]');
+  summary.priority = priorityElement ? priorityElement.textContent.trim() : '';
+
+  // Severity
+  const severityElement = document.querySelector('#ticket td[headers="h_severity"]');
+  summary.severity = severityElement ? severityElement.textContent.trim() : '';
+
+  // Component
+  const componentElement = document.querySelector('#ticket td[headers="h_component"]');
+  summary.component = componentElement ? componentElement.textContent.trim() : '';
+
+  // Keywords
+  const keywordsElement = document.querySelector('#ticket td[headers="h_keywords"]');
+  summary.keywords = keywordsElement ? keywordsElement.textContent.trim() : '';
+
+  // Dates - from the header section
+  const openedElement = document.querySelector('.date p');
+  if (openedElement) {
+    const dateText = openedElement.textContent;
+    // Extract "Opened X ago" and "Last modified X ago"
+    const openedMatch = dateText.match(/Opened (.+?)(?:Last|$)/);
+    const modifiedMatch = dateText.match(/Last modified (.+?)$/);
+
+    summary.opened = openedMatch ? openedMatch[1].trim() : '';
+    summary.lastModified = modifiedMatch ? modifiedMatch[1].trim() : '';
+  }
+
+  return summary;
+}
+
 // Helper: Get component maintainer information
 function getComponentMaintainerInfo() {
   // Check if maintainer data is available
@@ -554,6 +605,91 @@ function createKeywordSidebar(contributorData = {}) {
   sidebarToggleBtn.addEventListener('click', (e) => {
     toggleSidebarVisibility(true);
   });
+
+  // Add ticket summary section (sticky at top)
+  const ticketSummary = getTicketSummary();
+  const summaryBox = document.createElement('div');
+  summaryBox.style.cssText = `
+    margin-bottom: 16px;
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  `;
+
+  const summaryTitle = document.createElement('div');
+  summaryTitle.style.cssText = `
+    font-size: 14px;
+    font-weight: bold;
+    color: #212529;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #dee2e6;
+  `;
+  summaryTitle.innerHTML = `${ticketSummary.id} <span style="font-weight: normal; color: #6c757d;">Quick Info</span>`;
+  summaryBox.appendChild(summaryTitle);
+
+  // Create summary grid
+  const summaryItems = [
+    { label: 'Reporter', value: ticketSummary.reporter },
+    { label: 'Owner', value: ticketSummary.owner || 'Unowned' },
+    { label: 'Opened', value: ticketSummary.opened },
+    { label: 'Modified', value: ticketSummary.lastModified },
+    { label: 'Milestone', value: ticketSummary.milestone },
+    { label: 'Priority', value: ticketSummary.priority },
+    { label: 'Severity', value: ticketSummary.severity },
+    { label: 'Component', value: ticketSummary.component },
+    { label: 'Keywords', value: ticketSummary.keywords || 'None' }
+  ];
+
+  summaryItems.forEach(item => {
+    if (item.value) {
+      const itemDiv = document.createElement('div');
+      itemDiv.style.cssText = `
+        font-size: 11px;
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+        ${item.label === 'Keywords' ? 'align-items: flex-start;' : ''}
+      `;
+
+      const labelSpan = document.createElement('span');
+      labelSpan.style.cssText = `
+        color: #6c757d;
+        font-weight: 500;
+        ${item.label === 'Keywords' ? 'padding-top: 1px;' : ''}
+      `;
+      labelSpan.textContent = item.label + ':';
+
+      const valueSpan = document.createElement('span');
+      // Allow keywords to wrap, keep others on single line
+      const wrapStyle = item.label === 'Keywords'
+        ? 'word-break: break-word;'
+        : 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+      valueSpan.style.cssText = `
+        color: #212529;
+        font-weight: 600;
+        text-align: right;
+        max-width: 60%;
+        ${wrapStyle}
+      `;
+      valueSpan.textContent = item.value;
+      if (item.label !== 'Keywords') {
+        valueSpan.title = item.value; // Show full value on hover for truncated items
+      }
+
+      itemDiv.appendChild(labelSpan);
+      itemDiv.appendChild(valueSpan);
+      summaryBox.appendChild(itemDiv);
+    }
+  });
+
+  content.appendChild(summaryBox);
 
   // Add recent comments section
   const recentComments = getRecentComments(3, contributorData);
