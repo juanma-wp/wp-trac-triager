@@ -25,7 +25,7 @@ Floating sidebar showing explanations for all Trac keywords on the current ticke
 
 ## Screenshots
 
-> **Note**: Add screenshots here before publishing to Chrome Web Store
+![](./assets/snapshot.png)
 
 ## Installation
 
