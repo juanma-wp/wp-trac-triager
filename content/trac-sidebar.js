@@ -457,14 +457,35 @@ function getRecentComments(count = 3, contributorData = {}) {
       roleColor = roleColors[role] || '#607D8B';
     }
 
-    // Extract date
-    const changeHeader = change.querySelector('h3.change');
+    // Extract date - check multiple locations (same as milestone history fix)
     let date = 'unknown';
-    if (changeHeader) {
-      const headerText = changeHeader.textContent;
-      const timeMatch = headerText.match(/(\d+\s+(?:years?|months?|days?|hours?|minutes?)\s+ago)/);
-      if (timeMatch) {
-        date = timeMatch[1];
+
+    // Try 1: Look for .date .timeline link (most reliable)
+    const dateDiv = change.querySelector('.date');
+    if (dateDiv) {
+      const timelineLink = dateDiv.querySelector('.timeline');
+      if (timelineLink) {
+        date = timelineLink.textContent.trim();
+      }
+    }
+
+    // Try 2: Look for .trac-time or time-related spans
+    if (date === 'unknown') {
+      const timeSpan = change.querySelector('.trac-time, .time-ago, [title*="ago"]');
+      if (timeSpan) {
+        date = timeSpan.textContent.trim();
+      }
+    }
+
+    // Try 3: Parse from header text as fallback
+    if (date === 'unknown') {
+      const changeHeader = change.querySelector('h3.change');
+      if (changeHeader) {
+        const headerText = changeHeader.textContent;
+        const timeMatch = headerText.match(/(\d+\s+(?:years?|months?|days?|hours?|minutes?)\s+ago)/);
+        if (timeMatch) {
+          date = timeMatch[1];
+        }
       }
     }
 
@@ -823,62 +844,121 @@ function addAuthorityLegend(roleStats) {
   const sidebar = document.getElementById('wpt-keyword-sidebar');
   if (!sidebar) return;
 
-  const legendSection = createCollapsibleSection(
-    'authority-legend',
-    'Authority Hierarchy',
-    '👥'
-  );
+  // Check if authority-legend is enabled in user preferences
+  chrome.storage.sync.get(['config'], function(result) {
+    const config = result.config || {};
 
-  const legendContent = document.createElement('div');
-  legendContent.style.cssText = 'margin-top: 10px; font-size: 12px;';
+    if (!isSectionEnabled('authority-legend', config)) {
+      debug('Authority Legend section is disabled, skipping');
+      return;
+    }
 
-  // Sort roles by hierarchy
-  const sortedRoles = Object.entries(roleStats).sort((a, b) => {
-    const rankA = (typeof ROLE_HIERARCHY !== 'undefined' && ROLE_HIERARCHY[a[0]]) || 5;
-    const rankB = (typeof ROLE_HIERARCHY !== 'undefined' && ROLE_HIERARCHY[b[0]]) || 5;
-    return rankA - rankB;
+    const sectionOrder = getSectionOrder(config);
+    const targetOrder = sectionOrder['authority-legend'] || 4;
+
+    const legendSection = createCollapsibleSection(
+      'authority-legend',
+      'Authority Hierarchy',
+      '👥'
+    );
+
+    const legendContent = document.createElement('div');
+    legendContent.style.cssText = 'margin-top: 10px; font-size: 12px;';
+
+    // Sort roles by hierarchy
+    const sortedRoles = Object.entries(roleStats).sort((a, b) => {
+      const rankA = (typeof ROLE_HIERARCHY !== 'undefined' && ROLE_HIERARCHY[a[0]]) || 5;
+      const rankB = (typeof ROLE_HIERARCHY !== 'undefined' && ROLE_HIERARCHY[b[0]]) || 5;
+      return rankA - rankB;
+    });
+
+    sortedRoles.forEach(([role, count]) => {
+      const roleDiv = document.createElement('div');
+      roleDiv.style.cssText = `
+        padding: 6px;
+        margin-bottom: 4px;
+        background: #fafafa;
+        border-left: 3px solid ${getRoleColor(role)};
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      `;
+
+      const roleLabel = document.createElement('strong');
+      roleLabel.textContent = role;
+
+      const roleCount = document.createElement('span');
+      roleCount.style.cssText = 'color: #666; font-size: 11px;';
+      roleCount.textContent = `${count} comment${count > 1 ? 's' : ''}`;
+
+      roleDiv.appendChild(roleLabel);
+      roleDiv.appendChild(roleCount);
+      legendContent.appendChild(roleDiv);
+    });
+
+    // Add explanation
+    const explanation = document.createElement('div');
+    explanation.style.cssText = 'margin-top: 10px; padding: 8px; background: #e3f2fd; font-size: 11px; color: #1976d2; border-radius: 4px;';
+    explanation.textContent = '💡 Higher authority = more weight in triage decisions';
+    legendContent.appendChild(explanation);
+
+    legendSection.contentWrapper.appendChild(legendContent);
+
+    // Insert at the correct position based on user's order preference
+    const content = document.getElementById('wpt-sidebar-content');
+    const allSections = Array.from(content.children);
+
+    // Find where to insert based on order
+    let insertBefore = null;
+    for (const section of allSections) {
+      const sectionId = section.id ? section.id.replace('wpt-section-', '') : null;
+      if (sectionId && sectionOrder[sectionId] !== undefined) {
+        if (sectionOrder[sectionId] > targetOrder) {
+          insertBefore = section;
+          break;
+        }
+      }
+    }
+
+    if (insertBefore) {
+      content.insertBefore(legendSection.container, insertBefore);
+    } else {
+      content.appendChild(legendSection.container);
+    }
+
+    debug('Authority Legend added at order:', targetOrder);
   });
+}
 
-  sortedRoles.forEach(([role, count]) => {
-    const roleDiv = document.createElement('div');
-    roleDiv.style.cssText = `
-      padding: 6px;
-      margin-bottom: 4px;
-      background: #fafafa;
-      border-left: 3px solid ${getRoleColor(role)};
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    `;
-
-    const roleLabel = document.createElement('strong');
-    roleLabel.textContent = role;
-
-    const roleCount = document.createElement('span');
-    roleCount.style.cssText = 'color: #666; font-size: 11px;';
-    roleCount.textContent = `${count} comment${count > 1 ? 's' : ''}`;
-
-    roleDiv.appendChild(roleLabel);
-    roleDiv.appendChild(roleCount);
-    legendContent.appendChild(roleDiv);
-  });
-
-  // Add explanation
-  const explanation = document.createElement('div');
-  explanation.style.cssText = 'margin-top: 10px; padding: 8px; background: #e3f2fd; font-size: 11px; color: #1976d2; border-radius: 4px;';
-  explanation.textContent = '💡 Higher authority = more weight in triage decisions';
-  legendContent.appendChild(explanation);
-
-  legendSection.contentWrapper.appendChild(legendContent);
-
-  // Insert after recent comments section or at the beginning of content
-  const content = document.getElementById('wpt-sidebar-content');
-  const recentCommentsSection = document.getElementById('wpt-section-recent-comments');
-  if (recentCommentsSection) {
-    recentCommentsSection.parentNode.insertBefore(legendSection.container, recentCommentsSection.nextSibling);
-  } else {
-    content.insertBefore(legendSection.container, content.firstChild);
+// Helper: Check if section is enabled in user preferences
+function isSectionEnabled(sectionId, config) {
+  if (!config || !config.sidebarSections) {
+    return true; // Default to enabled if no config
   }
+  const section = config.sidebarSections.find(s => s.id === sectionId);
+  return section ? section.enabled : true;
+}
+
+// Helper: Get section order from user preferences
+function getSectionOrder(config) {
+  if (!config || !config.sidebarSections) {
+    return {
+      'quick-info': 0,
+      'release-schedule': 1,
+      'recent-comments': 2,
+      'milestone-timeline': 3,
+      'authority-legend': 4,
+      'maintainers': 5,
+      'keyword-validation': 6,
+      'keywords': 7
+    };
+  }
+
+  const orderMap = {};
+  config.sidebarSections.forEach(section => {
+    orderMap[section.id] = section.order;
+  });
+  return orderMap;
 }
 
 // Step 4: Create keyword sidebar
@@ -892,8 +972,18 @@ function createKeywordSidebar(contributorData = {}) {
   }
   debug('KEYWORD_DATA available');
 
+  // Load user preferences for sidebar sections
+  chrome.storage.sync.get(['config'], function(result) {
+    const config = result.config || {};
+    const sectionOrder = getSectionOrder(config);
+
+    continueCreatingSidebar(contributorData, config, sectionOrder);
+  });
+}
+
+// Continue creating sidebar after loading preferences
+function continueCreatingSidebar(contributorData, config, sectionOrder) {
   // Get keywords from the ticket
-  // Note: The td doesn't have class="keywords", it has headers="h_keywords"
   const keywordsElement = document.querySelector('#ticket td[headers="h_keywords"]');
 
   if (!keywordsElement) {
@@ -915,7 +1005,7 @@ function createKeywordSidebar(contributorData = {}) {
   sidebar.id = 'wpt-keyword-sidebar';
   debug('Sidebar element created');
 
-  // Integrated sidebar styling (fixed to right edge, content adjusts to not overlap)
+  // Integrated sidebar styling
   sidebar.style.cssText = `
     position: fixed;
     top: 80px;
@@ -932,10 +1022,10 @@ function createKeywordSidebar(contributorData = {}) {
     transform: translateX(0);
   `;
 
-  // Create toggle button that appears when sidebar is hidden
+  // Create toggle button
   const sidebarToggleBtn = document.createElement('button');
   sidebarToggleBtn.id = 'wpt-sidebar-toggle';
-  sidebarToggleBtn.innerHTML = '◀'; // Left arrow
+  sidebarToggleBtn.innerHTML = '◀';
   sidebarToggleBtn.style.cssText = `
     position: fixed;
     top: 50%;
@@ -957,17 +1047,13 @@ function createKeywordSidebar(contributorData = {}) {
     z-index: 1001;
     transition: background 0.2s;
   `;
-  sidebarToggleBtn.onmouseover = () => {
-    sidebarToggleBtn.style.background = '#f0f0f0';
-  };
-  sidebarToggleBtn.onmouseout = () => {
-    sidebarToggleBtn.style.background = 'white';
-  };
+  sidebarToggleBtn.onmouseover = () => sidebarToggleBtn.style.background = '#f0f0f0';
+  sidebarToggleBtn.onmouseout = () => sidebarToggleBtn.style.background = 'white';
 
-  // Adjust main content to make room for sidebar
+  // Adjust main content
   const mainContent = document.querySelector('#main') || document.querySelector('#content') || document.querySelector('body');
 
-  // Function to toggle sidebar visibility
+  // Toggle visibility function
   function toggleSidebarVisibility(show) {
     if (show) {
       sidebar.style.transform = 'translateX(0)';
@@ -984,22 +1070,17 @@ function createKeywordSidebar(contributorData = {}) {
         mainContent.style.transition = 'margin-right 0.3s ease-in-out';
       }
     }
-    // Save state
     localStorage.setItem('wpt-sidebar-visible', show ? 'true' : 'false');
   }
 
   // Check saved visibility state
   const savedVisible = localStorage.getItem('wpt-sidebar-visible');
-  const isVisible = savedVisible !== 'false'; // default to visible
+  const isVisible = savedVisible !== 'false';
 
   if (mainContent) {
     mainContent.style.marginRight = isVisible ? '340px' : '0';
-    debug('Main content adjusted, marginRight:', mainContent.style.marginRight);
-  } else {
-    debug('WARNING: Could not find main content element');
   }
 
-  // Initialize visibility
   if (!isVisible) {
     toggleSidebarVisibility(false);
   }
@@ -1024,7 +1105,7 @@ function createKeywordSidebar(contributorData = {}) {
   `;
 
   const toggleBtn = document.createElement('button');
-  toggleBtn.innerHTML = '▶'; // Right arrow to indicate hiding to the right
+  toggleBtn.innerHTML = '▶';
   toggleBtn.title = 'Hide sidebar';
   toggleBtn.style.cssText = `
     background: none;
@@ -1041,191 +1122,287 @@ function createKeywordSidebar(contributorData = {}) {
     align-items: center;
     justify-content: center;
   `;
-  toggleBtn.onmouseover = () => {
-    toggleBtn.style.background = '#f0f0f0';
-  };
-  toggleBtn.onmouseout = () => {
-    toggleBtn.style.background = 'none';
-  };
+  toggleBtn.onmouseover = () => toggleBtn.style.background = '#f0f0f0';
+  toggleBtn.onmouseout = () => toggleBtn.style.background = 'none';
 
   header.appendChild(headerTitle);
   header.appendChild(toggleBtn);
-
   sidebar.appendChild(header);
+
+  // Toggle events
+  toggleBtn.addEventListener('click', () => toggleSidebarVisibility(false));
+  sidebarToggleBtn.addEventListener('click', () => toggleSidebarVisibility(true));
 
   // Content wrapper
   const content = document.createElement('div');
   content.id = 'wpt-sidebar-content';
-  content.style.cssText = `
-    display: block;
-  `;
+  content.style.cssText = 'display: block;';
 
-  // Toggle button in header hides entire sidebar
-  toggleBtn.addEventListener('click', (e) => {
-    toggleSidebarVisibility(false);
-  });
-
-  // External toggle button shows sidebar
-  sidebarToggleBtn.addEventListener('click', (e) => {
-    toggleSidebarVisibility(true);
-  });
-
-  // Add ticket summary section (sticky at top)
-  const ticketSummary = getTicketSummary();
-  const summarySection = createCollapsibleSection('quick-info', `${ticketSummary.id} Quick Info`, '', true);
-  summarySection.container.style.cssText = `
+  // Create sticky header container for closed banner and Quick Info
+  const stickyHeader = document.createElement('div');
+  stickyHeader.id = 'wpt-sticky-header';
+  stickyHeader.style.cssText = `
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 100;
     background: white;
-    margin-bottom: 16px;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   `;
 
-  const summaryBox = document.createElement('div');
-  summaryBox.style.cssText = `
-    padding: 12px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  `;
+  // Check if ticket is closed and add prominent warning banner
+  const statusElement = document.querySelector('.trac-status a');
+  const ticketStatus = statusElement ? statusElement.textContent.trim().toLowerCase() : '';
 
-  // Add "View Description" link at the top
-  const viewDescLink = document.createElement('a');
-  viewDescLink.href = '#ticket';
-  viewDescLink.textContent = '↑ View Full Description';
-  viewDescLink.style.cssText = `
-    display: block;
-    font-size: 12px;
-    color: #2271b1;
-    text-decoration: none;
-    font-weight: 600;
-    margin-bottom: 12px;
-    padding: 8px;
-    background: #e7f3ff;
-    border-radius: 4px;
-    text-align: center;
-    transition: background 0.2s;
-  `;
-  viewDescLink.onmouseover = () => {
-    viewDescLink.style.background = '#d0e7ff';
-    viewDescLink.style.textDecoration = 'underline';
-  };
-  viewDescLink.onmouseout = () => {
-    viewDescLink.style.background = '#e7f3ff';
-    viewDescLink.style.textDecoration = 'none';
-  };
-  summaryBox.appendChild(viewDescLink);
+  if (ticketStatus === 'closed') {
+    // Extract close reason from the ticket header (e.g., "closed defect (bug) (worksforme)")
+    const ticketHeader = document.querySelector('#ticket h2.summary');
+    let closeReason = '';
+    if (ticketHeader) {
+      const headerText = ticketHeader.textContent;
+      // Extract text in parentheses after "closed"
+      const reasonMatch = headerText.match(/closed\s+[^(]*\(([^)]+)\)/);
+      if (reasonMatch) {
+        closeReason = reasonMatch[1];
+      }
+    }
 
-  // Create summary grid
-  const summaryItems = [
-    { label: 'Status', value: ticketSummary.status || 'Unknown', url: ticketSummary.statusUrl, required: true },
-    { label: 'Type', value: ticketSummary.type || 'Unknown', url: ticketSummary.typeUrl, required: true },
-    { label: 'Reporter', value: ticketSummary.reporter || 'Unknown', url: ticketSummary.reporterUrl, required: true },
-    { label: 'Owner', value: ticketSummary.owner || 'Unowned', url: ticketSummary.ownerUrl },
-    { label: 'Opened', value: ticketSummary.opened },
-    { label: 'Modified', value: ticketSummary.lastModified },
-    { label: 'Milestone', value: ticketSummary.milestone, url: ticketSummary.milestoneUrl },
-    { label: 'Priority', value: ticketSummary.priority },
-    { label: 'Severity', value: ticketSummary.severity },
-    { label: 'Component', value: ticketSummary.component, url: ticketSummary.componentUrl },
-    { label: 'Keywords', value: ticketSummary.keywords || 'None', isKeywords: true }
-  ];
+    const closedBanner = document.createElement('div');
+    closedBanner.id = 'wpt-closed-banner';
+    closedBanner.style.cssText = `
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      color: white;
+      padding: 16px;
+      margin-bottom: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+      border: 2px solid #991b1b;
+    `;
 
-  debug('Summary items to display:', summaryItems);
+    const icon = document.createElement('div');
+    icon.style.cssText = `
+      font-size: 32px;
+      text-align: center;
+      margin-bottom: 8px;
+    `;
+    icon.textContent = '🔒';
 
-  summaryItems.forEach(item => {
-    // Show required fields even if empty, or if value exists
-    if (item.required || item.value) {
-      const itemDiv = document.createElement('div');
-      itemDiv.style.cssText = `
-        font-size: 11px;
-        margin-bottom: 4px;
-        display: flex;
-        justify-content: space-between;
-        ${item.isKeywords ? 'align-items: flex-start;' : ''}
-      `;
+    const title = document.createElement('div');
+    title.style.cssText = `
+      font-size: 16px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    `;
+    title.textContent = 'TICKET CLOSED';
 
-      const labelSpan = document.createElement('span');
-      labelSpan.style.cssText = `
-        color: #6c757d;
-        font-weight: 500;
-        ${item.isKeywords ? 'padding-top: 1px;' : ''}
-      `;
-      labelSpan.textContent = item.label + ':';
+    const message = document.createElement('div');
+    message.style.cssText = `
+      font-size: 13px;
+      text-align: center;
+      opacity: 0.95;
+      line-height: 1.5;
+    `;
 
-      const valueContainer = document.createElement('span');
-      const wrapStyle = item.isKeywords
-        ? 'word-break: break-word;'
-        : 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+    if (closeReason) {
+      message.innerHTML = `This ticket was closed as:<br><strong style="font-size: 14px;">${closeReason}</strong>`;
+    } else {
+      message.textContent = 'This ticket is no longer active';
+    }
 
-      valueContainer.style.cssText = `
-        color: #212529;
-        font-weight: 600;
-        text-align: right;
-        max-width: 60%;
-        ${wrapStyle}
-      `;
+    const note = document.createElement('div');
+    note.style.cssText = `
+      font-size: 11px;
+      text-align: center;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      opacity: 0.9;
+    `;
+    note.textContent = 'No further triage needed';
 
-      // Handle keywords as individual links
-      if (item.isKeywords && item.value !== 'None') {
-        const keywords = item.value.split(/\s+/).filter(k => k.length > 0);
-        keywords.forEach((keyword, idx) => {
-          const keywordLink = document.createElement('a');
-          keywordLink.href = `https://core.trac.wordpress.org/query?keywords=~${keyword}`;
-          keywordLink.textContent = keyword;
-          keywordLink.target = '_blank';
-          keywordLink.style.cssText = `
+    closedBanner.appendChild(icon);
+    closedBanner.appendChild(title);
+    closedBanner.appendChild(message);
+    closedBanner.appendChild(note);
+
+    stickyHeader.appendChild(closedBanner);
+    debug('Added closed ticket banner to sticky header');
+  }
+
+  // Collect all sections with their order
+  const sectionsToRender = [];
+
+  // Build each section and add to array
+  debug('Building sidebar sections...');
+
+  // Section 1: Quick Info (always enabled, locked) - goes in sticky header
+  let quickInfoSection = null;
+  if (isSectionEnabled('quick-info', config)) {
+    const ticketSummary = getTicketSummary();
+    quickInfoSection = createCollapsibleSection('quick-info', `${ticketSummary.id} Quick Info`, '', true);
+
+    // Quick Info is NOT sticky itself - it's part of the sticky header
+    quickInfoSection.container.style.cssText = `
+      background: white;
+      margin-bottom: 0;
+    `;
+
+    const summaryBox = document.createElement('div');
+    summaryBox.style.cssText = `
+      padding: 12px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    `;
+
+    // Add "View Description" link
+    const viewDescLink = document.createElement('a');
+    viewDescLink.href = '#ticket';
+    viewDescLink.textContent = '↑ View Full Description';
+    viewDescLink.style.cssText = `
+      display: block;
+      font-size: 12px;
+      color: #2271b1;
+      text-decoration: none;
+      font-weight: 600;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #e7f3ff;
+      border-radius: 4px;
+      text-align: center;
+      transition: background 0.2s;
+    `;
+    viewDescLink.onmouseover = () => {
+      viewDescLink.style.background = '#d0e7ff';
+      viewDescLink.style.textDecoration = 'underline';
+    };
+    viewDescLink.onmouseout = () => {
+      viewDescLink.style.background = '#e7f3ff';
+      viewDescLink.style.textDecoration = 'none';
+    };
+    summaryBox.appendChild(viewDescLink);
+
+    // Summary items
+    const summaryItems = [
+      { label: 'Status', value: ticketSummary.status || 'Unknown', url: ticketSummary.statusUrl, required: true },
+      { label: 'Type', value: ticketSummary.type || 'Unknown', url: ticketSummary.typeUrl, required: true },
+      { label: 'Reporter', value: ticketSummary.reporter || 'Unknown', url: ticketSummary.reporterUrl, required: true },
+      { label: 'Owner', value: ticketSummary.owner || 'Unowned', url: ticketSummary.ownerUrl },
+      { label: 'Opened', value: ticketSummary.opened },
+      { label: 'Modified', value: ticketSummary.lastModified },
+      { label: 'Milestone', value: ticketSummary.milestone, url: ticketSummary.milestoneUrl },
+      { label: 'Priority', value: ticketSummary.priority },
+      { label: 'Severity', value: ticketSummary.severity },
+      { label: 'Component', value: ticketSummary.component, url: ticketSummary.componentUrl },
+      { label: 'Keywords', value: ticketSummary.keywords || 'None', isKeywords: true }
+    ];
+
+    summaryItems.forEach(item => {
+      if (item.required || item.value) {
+        // Special handling for closed status - make it prominent
+        const isClosed = item.label === 'Status' && item.value && item.value.toLowerCase() === 'closed';
+
+        const itemDiv = document.createElement('div');
+        itemDiv.style.cssText = `
+          font-size: 11px;
+          margin-bottom: 4px;
+          display: flex;
+          justify-content: space-between;
+          ${item.isKeywords ? 'align-items: flex-start;' : ''}
+          ${isClosed ? 'background: #fee2e2; padding: 6px; border-radius: 4px; border-left: 3px solid #dc2626;' : ''}
+        `;
+
+        const labelSpan = document.createElement('span');
+        labelSpan.style.cssText = `
+          color: ${isClosed ? '#991b1b' : '#6c757d'};
+          font-weight: ${isClosed ? 'bold' : '500'};
+          ${item.isKeywords ? 'padding-top: 1px;' : ''}
+        `;
+        labelSpan.textContent = item.label + ':';
+
+        const valueContainer = document.createElement('span');
+        const wrapStyle = item.isKeywords
+          ? 'word-break: break-word;'
+          : 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+
+        valueContainer.style.cssText = `
+          color: ${isClosed ? '#dc2626' : '#212529'};
+          font-weight: ${isClosed ? 'bold' : '600'};
+          text-align: right;
+          max-width: 60%;
+          ${wrapStyle}
+          ${isClosed ? 'text-transform: uppercase;' : ''}
+        `;
+
+        // Handle keywords as individual links
+        if (item.isKeywords && item.value !== 'None') {
+          const keywordsList = item.value.split(/\s+/).filter(k => k.length > 0);
+          keywordsList.forEach((keyword, idx) => {
+            const keywordLink = document.createElement('a');
+            keywordLink.href = `https://core.trac.wordpress.org/query?keywords=~${keyword}`;
+            keywordLink.textContent = keyword;
+            keywordLink.target = '_blank';
+            keywordLink.style.cssText = `
+              color: #2271b1;
+              text-decoration: none;
+              font-weight: 600;
+            `;
+            keywordLink.onmouseover = () => keywordLink.style.textDecoration = 'underline';
+            keywordLink.onmouseout = () => keywordLink.style.textDecoration = 'none';
+
+            valueContainer.appendChild(keywordLink);
+            if (idx < keywordsList.length - 1) {
+              valueContainer.appendChild(document.createTextNode(' '));
+            }
+          });
+        }
+        // Handle linked values
+        else if (item.url) {
+          const link = document.createElement('a');
+          link.href = item.url;
+          link.textContent = item.value;
+          link.target = '_blank';
+          link.style.cssText = `
             color: #2271b1;
             text-decoration: none;
             font-weight: 600;
           `;
-          keywordLink.onmouseover = () => keywordLink.style.textDecoration = 'underline';
-          keywordLink.onmouseout = () => keywordLink.style.textDecoration = 'none';
-
-          valueContainer.appendChild(keywordLink);
-          if (idx < keywords.length - 1) {
-            valueContainer.appendChild(document.createTextNode(' '));
-          }
-        });
-      }
-      // Handle linked values (reporter, owner, component, milestone)
-      else if (item.url) {
-        const link = document.createElement('a');
-        link.href = item.url;
-        link.textContent = item.value;
-        link.target = '_blank';
-        link.style.cssText = `
-          color: #2271b1;
-          text-decoration: none;
-          font-weight: 600;
-        `;
-        link.onmouseover = () => link.style.textDecoration = 'underline';
-        link.onmouseout = () => link.style.textDecoration = 'none';
-        valueContainer.appendChild(link);
-      }
-      // Plain text values
-      else {
-        valueContainer.textContent = item.value;
-        if (!item.isKeywords) {
-          valueContainer.title = item.value;
+          link.onmouseover = () => link.style.textDecoration = 'underline';
+          link.onmouseout = () => link.style.textDecoration = 'none';
+          valueContainer.appendChild(link);
         }
+        // Plain text values
+        else {
+          valueContainer.textContent = item.value;
+          if (!item.isKeywords) {
+            valueContainer.title = item.value;
+          }
+        }
+
+        itemDiv.appendChild(labelSpan);
+        itemDiv.appendChild(valueContainer);
+        summaryBox.appendChild(itemDiv);
       }
+    });
 
-      itemDiv.appendChild(labelSpan);
-      itemDiv.appendChild(valueContainer);
-      summaryBox.appendChild(itemDiv);
-    }
-  });
+    quickInfoSection.contentWrapper.appendChild(summaryBox);
 
-  summarySection.contentWrapper.appendChild(summaryBox);
-  content.appendChild(summarySection.container);
+    // Add Quick Info to sticky header instead of sectionsToRender
+    stickyHeader.appendChild(quickInfoSection.container);
+    debug('Added Quick Info to sticky header');
+  }
 
-  // Add WordPress release schedule section
-  chrome.storage.sync.get(['config'], function(result) {
-    const config = result.config || {};
-    const targetVersion = config.targetWpVersion || '7.0'; // Default to 7.0
+  // Append sticky header to content (it contains closed banner and Quick Info)
+  content.appendChild(stickyHeader);
 
+  // Section 2: Release Schedule
+  if (isSectionEnabled('release-schedule', config)) {
+    const targetVersion = config.targetWpVersion || '7.0';
     if (typeof WP_RELEASE_SCHEDULES !== 'undefined' && WP_RELEASE_SCHEDULES[targetVersion]) {
       const schedule = WP_RELEASE_SCHEDULES[targetVersion];
       const nextMilestone = getNextMilestone(targetVersion);
@@ -1321,7 +1498,7 @@ function createKeywordSidebar(contributorData = {}) {
         releaseBox.appendChild(completedDiv);
       }
 
-      // Add links section
+      // Add links
       const linksDiv = document.createElement('div');
       linksDiv.style.cssText = `
         margin-top: 12px;
@@ -1333,7 +1510,6 @@ function createKeywordSidebar(contributorData = {}) {
         gap: 4px;
       `;
 
-      // Release page link
       const releasePageLink = document.createElement('a');
       releasePageLink.href = schedule.releasePageUrl;
       releasePageLink.target = '_blank';
@@ -1346,7 +1522,6 @@ function createKeywordSidebar(contributorData = {}) {
       releasePageLink.onmouseover = () => releasePageLink.style.textDecoration = 'underline';
       releasePageLink.onmouseout = () => releasePageLink.style.textDecoration = 'none';
 
-      // Release squad link
       const releaseSquadLink = document.createElement('a');
       releaseSquadLink.href = schedule.releaseSquadUrl;
       releaseSquadLink.target = '_blank';
@@ -1364,497 +1539,518 @@ function createKeywordSidebar(contributorData = {}) {
       releaseBox.appendChild(linksDiv);
 
       releaseSection.contentWrapper.appendChild(releaseBox);
-      content.appendChild(releaseSection.container);
+      sectionsToRender.push({
+        id: 'release-schedule',
+        element: releaseSection.container,
+        order: sectionOrder['release-schedule'] || 1
+      });
     }
-  });
-
-  // Add recent comments section
-  const recentComments = getRecentComments(3, contributorData);
-  debug('Recent comments found:', recentComments.length);
-  if (recentComments.length > 0) {
-    const commentsSection = createCollapsibleSection('recent-comments', 'Recent Comments', '💬', true);
-
-    const recentCommentsBox = document.createElement('div');
-    recentCommentsBox.style.cssText = `
-      padding: 12px;
-      background: #f0f6fc;
-      border-left: 3px solid #0969da;
-      border-radius: 4px;
-    `;
-
-    // Add each comment
-    recentComments.forEach((comment, index) => {
-      const commentItem = document.createElement('div');
-      commentItem.style.cssText = `
-        padding: 6px 0;
-        ${index < recentComments.length - 1 ? 'border-bottom: 1px solid #d0d7de;' : ''}
-      `;
-
-      const commentLink = document.createElement('a');
-      commentLink.href = comment.link;
-      commentLink.textContent = `#${comment.number}`;
-      commentLink.style.cssText = `
-        font-weight: bold;
-        color: ${comment.roleColor || '#0969da'};
-        text-decoration: none;
-        font-size: 13px;
-      `;
-      commentLink.onmouseover = () => commentLink.style.textDecoration = 'underline';
-      commentLink.onmouseout = () => commentLink.style.textDecoration = 'none';
-
-      const commentMeta = document.createElement('div');
-      commentMeta.style.cssText = `
-        font-size: 11px;
-        color: #666;
-        margin-top: 2px;
-      `;
-
-      // Build meta text with linked author name
-      commentMeta.innerHTML = `${comment.date} by `;
-
-      const authorLink = document.createElement('a');
-      authorLink.href = `https://profiles.wordpress.org/${comment.author}/`;
-      authorLink.target = '_blank';
-      authorLink.textContent = comment.author;
-      authorLink.style.cssText = `
-        color: #0969da;
-        text-decoration: none;
-      `;
-      authorLink.onmouseover = () => authorLink.style.textDecoration = 'underline';
-      authorLink.onmouseout = () => authorLink.style.textDecoration = 'none';
-
-      commentMeta.appendChild(authorLink);
-
-      if (comment.role) {
-        const roleSpan = document.createElement('span');
-        roleSpan.textContent = ` (${comment.role})`;
-        commentMeta.appendChild(roleSpan);
-      }
-
-      commentItem.appendChild(commentLink);
-      commentItem.appendChild(commentMeta);
-      recentCommentsBox.appendChild(commentItem);
-    });
-
-    commentsSection.contentWrapper.appendChild(recentCommentsBox);
-    content.appendChild(commentsSection.container);
-    debug('Recent comments section added to content');
   }
 
-  // Add Milestone History Timeline
-  const milestoneHistory = extractMilestoneHistory();
-  debug('Milestone history extracted:', milestoneHistory.length, 'changes');
-  if (milestoneHistory.length > 0) {
-    const timelineSection = createCollapsibleSection('milestone-timeline', 'Milestone History', '📊', true);
+  // Section 3: Recent Comments
+  if (isSectionEnabled('recent-comments', config)) {
+    const recentComments = getRecentComments(3, contributorData);
+    debug('Recent comments found:', recentComments.length);
+    if (recentComments.length > 0) {
+      const commentsSection = createCollapsibleSection('recent-comments', 'Recent Comments', '💬', true);
 
-    const timelineContent = document.createElement('div');
-    timelineContent.style.cssText = 'margin-top: 10px; position: relative; padding: 10px 0;';
-
-    // Vertical timeline line
-    const timelineLine = document.createElement('div');
-    timelineLine.style.cssText = `
-      position: absolute;
-      left: 10px;
-      top: 15px;
-      bottom: 15px;
-      width: 2px;
-      background: #ddd;
-    `;
-    timelineContent.appendChild(timelineLine);
-
-    milestoneHistory.forEach((change, index) => {
-      const changeDiv = document.createElement('div');
-      changeDiv.style.cssText = `
-        padding-left: 30px;
-        margin-bottom: 15px;
-        position: relative;
-      `;
-
-      // Timeline dot
-      const dot = document.createElement('div');
-      dot.style.cssText = `
-        position: absolute;
-        left: 5px;
-        top: 5px;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: ${index === milestoneHistory.length - 1 ? '#4CAF50' : '#2196F3'};
-        border: 2px solid white;
-        box-shadow: 0 0 0 1px #ddd;
-      `;
-      changeDiv.appendChild(dot);
-
-      // Change content
-      const contentBox = document.createElement('div');
-      contentBox.style.cssText = `
-        background: #fafafa;
-        padding: 8px;
+      const recentCommentsBox = document.createElement('div');
+      recentCommentsBox.style.cssText = `
+        padding: 12px;
+        background: #f0f6fc;
+        border-left: 3px solid #0969da;
         border-radius: 4px;
-        font-size: 12px;
       `;
 
-      let milestoneText = '';
-      if (change.from) {
-        // "from X to Y" format
-        const fromDisplay = change.from === '(none)' ? '<em style="color: #999;">none</em>' : `<strong>${change.from}</strong>`;
-        const toDisplay = change.to === '(none)' ? '<em style="color: #999;">none</em>' : `<strong style="color: #4CAF50;">${change.to}</strong>`;
-        milestoneText = `${fromDisplay} → ${toDisplay}`;
-      } else {
-        // "Set to X" format
-        if (change.to === '(none)') {
-          milestoneText = `<span style="color: #999;">Milestone removed</span>`;
-        } else {
-          milestoneText = `Set to <strong style="color: #4CAF50;">${change.to}</strong>`;
+      recentComments.forEach((comment, index) => {
+        const commentItem = document.createElement('div');
+        commentItem.style.cssText = `
+          padding: 6px 0;
+          ${index < recentComments.length - 1 ? 'border-bottom: 1px solid #d0d7de;' : ''}
+        `;
+
+        const commentLink = document.createElement('a');
+        commentLink.href = comment.link;
+        commentLink.textContent = `#${comment.number}`;
+        commentLink.style.cssText = `
+          font-weight: bold;
+          color: ${comment.roleColor || '#0969da'};
+          text-decoration: none;
+          font-size: 13px;
+        `;
+        commentLink.onmouseover = () => commentLink.style.textDecoration = 'underline';
+        commentLink.onmouseout = () => commentLink.style.textDecoration = 'none';
+
+        const commentMeta = document.createElement('div');
+        commentMeta.style.cssText = `
+          font-size: 11px;
+          color: #666;
+          margin-top: 2px;
+        `;
+
+        commentMeta.innerHTML = `${comment.date} by `;
+
+        const authorLink = document.createElement('a');
+        authorLink.href = `https://profiles.wordpress.org/${comment.author}/`;
+        authorLink.target = '_blank';
+        authorLink.textContent = comment.author;
+        authorLink.style.cssText = `
+          color: #0969da;
+          text-decoration: none;
+        `;
+        authorLink.onmouseover = () => authorLink.style.textDecoration = 'underline';
+        authorLink.onmouseout = () => authorLink.style.textDecoration = 'none';
+
+        commentMeta.appendChild(authorLink);
+
+        if (comment.role) {
+          const roleSpan = document.createElement('span');
+          roleSpan.textContent = ` (${comment.role})`;
+          commentMeta.appendChild(roleSpan);
         }
-      }
 
-      contentBox.innerHTML = `
-        <div style="margin-bottom: 4px;">${milestoneText}</div>
-        <div style="color: #666; font-size: 11px;">
-          by <strong>${change.author}</strong> (${change.authorRole})
-          <span style="color: #999;"> • ${change.relativeTime}</span>
-        </div>
-        ${change.commentId ? `<a href="${change.commentId}" style="font-size: 10px; color: #2196F3; text-decoration: none;">View comment →</a>` : ''}
-      `;
+        commentItem.appendChild(commentLink);
+        commentItem.appendChild(commentMeta);
+        recentCommentsBox.appendChild(commentItem);
+      });
 
-      changeDiv.appendChild(contentBox);
-      timelineContent.appendChild(changeDiv);
-    });
-
-    // Warning if punted multiple times
-    if (milestoneHistory.length >= 2) {
-      const warningBox = document.createElement('div');
-      warningBox.style.cssText = `
-        margin-top: 10px;
-        padding: 8px;
-        background: #fff3e0;
-        border-left: 3px solid #ff9800;
-        font-size: 11px;
-        color: #e65100;
-        border-radius: 4px;
-      `;
-      const puntCount = milestoneHistory.length;
-      warningBox.innerHTML = `
-        <strong>⚠️ Punted ${puntCount} time${puntCount > 1 ? 's' : ''}</strong><br>
-        Consider if this ticket needs more work before next milestone.
-      `;
-      timelineContent.appendChild(warningBox);
+      commentsSection.contentWrapper.appendChild(recentCommentsBox);
+      sectionsToRender.push({
+        id: 'recent-comments',
+        element: commentsSection.container,
+        order: sectionOrder['recent-comments'] || 2
+      });
+      debug('Recent comments section added to array');
     }
-
-    timelineSection.contentWrapper.appendChild(timelineContent);
-    content.appendChild(timelineSection.container);
-    debug('Milestone history timeline added to content');
   }
 
-  // Add component maintainer info
-  const maintainerInfo = getComponentMaintainerInfo();
-  debug('Maintainer info:', maintainerInfo ? maintainerInfo.component : 'none');
-  if (maintainerInfo) {
-    const maintainerSection = createCollapsibleSection('maintainers', 'Component Maintainers', '🔧', true);
+  // Section 4: Milestone Timeline
+  if (isSectionEnabled('milestone-timeline', config)) {
+    const milestoneHistory = extractMilestoneHistory();
+    debug('Milestone history extracted:', milestoneHistory.length, 'changes');
+    if (milestoneHistory.length > 0) {
+      const timelineSection = createCollapsibleSection('milestone-timeline', 'Milestone History', '📊', true);
 
-    const maintainerBox = document.createElement('div');
-    maintainerBox.style.cssText = `
-      padding: 12px;
-      background: #fff8e6;
-      border-left: 3px solid #f59e0b;
-      border-radius: 4px;
-    `;
+      const timelineContent = document.createElement('div');
+      timelineContent.style.cssText = 'margin-top: 10px; position: relative; padding: 10px 0;';
 
-    // Add context description
-    const contextDesc = document.createElement('div');
-    contextDesc.style.cssText = `
+      const timelineLine = document.createElement('div');
+      timelineLine.style.cssText = `
+        position: absolute;
+        left: 10px;
+        top: 15px;
+        bottom: 15px;
+        width: 2px;
+        background: #ddd;
+      `;
+      timelineContent.appendChild(timelineLine);
+
+      milestoneHistory.forEach((change, index) => {
+        const changeDiv = document.createElement('div');
+        changeDiv.style.cssText = `
+          padding-left: 30px;
+          margin-bottom: 15px;
+          position: relative;
+        `;
+
+        const dot = document.createElement('div');
+        dot.style.cssText = `
+          position: absolute;
+          left: 5px;
+          top: 5px;
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          background: ${index === milestoneHistory.length - 1 ? '#4CAF50' : '#2196F3'};
+          border: 2px solid white;
+          box-shadow: 0 0 0 1px #ddd;
+        `;
+        changeDiv.appendChild(dot);
+
+        const contentBox = document.createElement('div');
+        contentBox.style.cssText = `
+          background: #fafafa;
+          padding: 8px;
+          border-radius: 4px;
+          font-size: 12px;
+        `;
+
+        let milestoneText = '';
+        if (change.from) {
+          const fromDisplay = change.from === '(none)' ? '<em style="color: #999;">none</em>' : `<strong>${change.from}</strong>`;
+          const toDisplay = change.to === '(none)' ? '<em style="color: #999;">none</em>' : `<strong style="color: #4CAF50;">${change.to}</strong>`;
+          milestoneText = `${fromDisplay} → ${toDisplay}`;
+        } else {
+          if (change.to === '(none)') {
+            milestoneText = `<span style="color: #999;">Milestone removed</span>`;
+          } else {
+            milestoneText = `Set to <strong style="color: #4CAF50;">${change.to}</strong>`;
+          }
+        }
+
+        contentBox.innerHTML = `
+          <div style="margin-bottom: 4px;">${milestoneText}</div>
+          <div style="color: #666; font-size: 11px;">
+            by <strong>${change.author}</strong> (${change.authorRole})
+            <span style="color: #999;"> • ${change.relativeTime}</span>
+          </div>
+          ${change.commentId ? `<a href="${change.commentId}" style="font-size: 10px; color: #2196F3; text-decoration: none;">View comment →</a>` : ''}
+        `;
+
+        changeDiv.appendChild(contentBox);
+        timelineContent.appendChild(changeDiv);
+      });
+
+      if (milestoneHistory.length >= 2) {
+        const warningBox = document.createElement('div');
+        warningBox.style.cssText = `
+          margin-top: 10px;
+          padding: 8px;
+          background: #fff3e0;
+          border-left: 3px solid #ff9800;
+          font-size: 11px;
+          color: #e65100;
+          border-radius: 4px;
+        `;
+        const puntCount = milestoneHistory.length;
+        warningBox.innerHTML = `
+          <strong>⚠️ Punted ${puntCount} time${puntCount > 1 ? 's' : ''}</strong><br>
+          Consider if this ticket needs more work before next milestone.
+        `;
+        timelineContent.appendChild(warningBox);
+      }
+
+      timelineSection.contentWrapper.appendChild(timelineContent);
+      sectionsToRender.push({
+        id: 'milestone-timeline',
+        element: timelineSection.container,
+        order: sectionOrder['milestone-timeline'] || 3
+      });
+      debug('Milestone history timeline added to array');
+    }
+  }
+
+  // Section 5: Component Maintainers
+  if (isSectionEnabled('maintainers', config)) {
+    const maintainerInfo = getComponentMaintainerInfo();
+    debug('Maintainer info:', maintainerInfo ? maintainerInfo.component : 'none');
+    if (maintainerInfo) {
+      const maintainerSection = createCollapsibleSection('maintainers', 'Component Maintainers', '🔧', true);
+
+      const maintainerBox = document.createElement('div');
+      maintainerBox.style.cssText = `
+        padding: 12px;
+        background: #fff8e6;
+        border-left: 3px solid #f59e0b;
+        border-radius: 4px;
+      `;
+
+      const contextDesc = document.createElement('div');
+      contextDesc.style.cssText = `
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 12px;
+        line-height: 1.5;
+      `;
+      contextDesc.innerHTML = `This issue is categorized as part of the <strong>${maintainerInfo.component}</strong> component, which is maintained by:`;
+      maintainerBox.appendChild(contextDesc);
+
+      maintainerInfo.maintainers.forEach((maintainer, index) => {
+        const maintainerItem = document.createElement('div');
+        maintainerItem.style.cssText = `
+          padding: 6px 0;
+          ${index < maintainerInfo.maintainers.length - 1 ? 'border-bottom: 1px solid #fde68a;' : ''}
+        `;
+
+        const maintainerLink = document.createElement('a');
+        maintainerLink.href = maintainer.profileUrl;
+        maintainerLink.target = '_blank';
+        maintainerLink.textContent = `${maintainer.displayName} (@${maintainer.username})`;
+        maintainerLink.style.cssText = `
+          font-weight: bold;
+          color: #d97706;
+          text-decoration: none;
+          font-size: 13px;
+        `;
+        maintainerLink.onmouseover = () => maintainerLink.style.textDecoration = 'underline';
+        maintainerLink.onmouseout = () => maintainerLink.style.textDecoration = 'none';
+
+        maintainerItem.appendChild(maintainerLink);
+
+        if (maintainer.role) {
+          const roleSpan = document.createElement('span');
+          roleSpan.style.cssText = `
+            font-size: 11px;
+            color: #666;
+            margin-left: 4px;
+          `;
+          roleSpan.textContent = `(${maintainer.role})`;
+          maintainerItem.appendChild(roleSpan);
+        }
+
+        if (maintainer.lastComment) {
+          const lastCommentDiv = document.createElement('div');
+          lastCommentDiv.style.cssText = `
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+          `;
+          lastCommentDiv.innerHTML = `Last commented <a href="${maintainer.lastComment.link}" style="color: #d97706; text-decoration: none;">${maintainer.lastComment.date}</a>`;
+          maintainerItem.appendChild(lastCommentDiv);
+        }
+
+        maintainerBox.appendChild(maintainerItem);
+      });
+
+      const componentsLink = document.createElement('div');
+      componentsLink.style.cssText = `
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid #fde68a;
+        font-size: 11px;
+      `;
+
+      const link = document.createElement('a');
+      link.href = 'https://make.wordpress.org/core/components/';
+      link.target = '_blank';
+      link.textContent = 'View all WordPress components →';
+      link.style.cssText = `
+        color: #d97706;
+        text-decoration: none;
+        font-weight: 500;
+      `;
+      link.onmouseover = () => link.style.textDecoration = 'underline';
+      link.onmouseout = () => link.style.textDecoration = 'none';
+
+      componentsLink.appendChild(link);
+      maintainerBox.appendChild(componentsLink);
+
+      maintainerSection.contentWrapper.appendChild(maintainerBox);
+      sectionsToRender.push({
+        id: 'maintainers',
+        element: maintainerSection.container,
+        order: sectionOrder['maintainers'] || 5
+      });
+      debug('Maintainer section added to array');
+    }
+  }
+
+  // Section 6: Keyword Validation (conditional - only if issues found)
+  if (isSectionEnabled('keyword-validation', config)) {
+    const validationIssues = analyzeKeywordValidation();
+    debug('Keyword validation issues found:', validationIssues.length);
+    if (validationIssues.length > 0) {
+      const validationSection = createCollapsibleSection('keyword-validation', 'Keyword Validation', '⚠️', true);
+
+      const validationContent = document.createElement('div');
+      validationContent.style.cssText = 'margin-top: 10px;';
+
+      validationIssues.forEach(issue => {
+        const issueDiv = document.createElement('div');
+        const severityColor = {
+          'high': '#f44336',
+          'medium': '#ff9800',
+          'low': '#2196F3'
+        }[issue.severity];
+
+        issueDiv.style.cssText = `
+          padding: 10px;
+          margin-bottom: 8px;
+          border-left: 4px solid ${severityColor};
+          background: #fafafa;
+          font-size: 12px;
+          border-radius: 4px;
+        `;
+
+        const severityLabel = {
+          'high': '🔴 HIGH PRIORITY',
+          'medium': '🟠 MEDIUM',
+          'low': '🔵 LOW'
+        }[issue.severity];
+
+        let sourceDisplay = '';
+        if (issue.source && typeof VALIDATION_RULE_SOURCES !== 'undefined') {
+          const sourceConfig = VALIDATION_RULE_SOURCES[issue.source.type] || VALIDATION_RULE_SOURCES['best-practice'];
+          const sourceIcon = sourceConfig.icon;
+          const sourceColor = sourceConfig.color;
+
+          sourceDisplay = `
+            <div style="font-size: 10px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+              <div style="margin-bottom: 4px;">
+                <span style="color: ${sourceColor};">${sourceIcon} <strong>${sourceConfig.label}</strong></span>
+              </div>
+              <div style="color: #888; font-style: italic;">${issue.source.note || issue.source.title}</div>
+              ${issue.source.url ? `<a href="${issue.source.url}" target="_blank" style="color: #2271b1; text-decoration: none; font-weight: 500;">📖 View documentation →</a>` : ''}
+            </div>
+          `;
+        }
+
+        issueDiv.innerHTML = `
+          <div style="font-weight: bold; color: ${severityColor}; margin-bottom: 6px;">${severityLabel}</div>
+          <div style="color: #333; margin-bottom: 6px;">${issue.message}</div>
+          <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
+            Added by: <strong>${issue.author}</strong> (${issue.authorRole})
+          </div>
+          ${issue.recommendation ? `<div style="font-size: 11px; color: #555; font-style: italic; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0e0e0;">💡 ${issue.recommendation}</div>` : ''}
+          ${sourceDisplay}
+        `;
+
+        validationContent.appendChild(issueDiv);
+      });
+
+      validationSection.contentWrapper.appendChild(validationContent);
+      sectionsToRender.push({
+        id: 'keyword-validation',
+        element: validationSection.container,
+        order: sectionOrder['keyword-validation'] || 6
+      });
+      debug('Keyword validation panel added to array');
+    }
+  }
+
+  // Section 7: Keywords
+  if (isSectionEnabled('keywords', config)) {
+    const keywordsSection = createCollapsibleSection('keywords', 'TRAC Keywords', '🏷️', true);
+
+    const keywordsContext = document.createElement('div');
+    keywordsContext.style.cssText = `
       font-size: 12px;
       color: #666;
       margin-bottom: 12px;
       line-height: 1.5;
     `;
-    contextDesc.innerHTML = `This issue is categorized as part of the <strong>${maintainerInfo.component}</strong> component, which is maintained by:`;
-    maintainerBox.appendChild(contextDesc);
 
-    // Add each maintainer
-    maintainerInfo.maintainers.forEach((maintainer, index) => {
-      const maintainerItem = document.createElement('div');
-      maintainerItem.style.cssText = `
-        padding: 6px 0;
-        ${index < maintainerInfo.maintainers.length - 1 ? 'border-bottom: 1px solid #fde68a;' : ''}
-      `;
+    if (keywords.length > 0) {
+      keywordsContext.innerHTML = `According to the keywords, the current state of this issue is:`;
+    } else {
+      keywordsContext.innerHTML = `This ticket has <strong>no keywords</strong> assigned yet. Keywords help categorize and track the status of tickets.`;
+    }
 
-      const maintainerLink = document.createElement('a');
-      maintainerLink.href = maintainer.profileUrl;
-      maintainerLink.target = '_blank';
-      maintainerLink.textContent = `${maintainer.displayName} (@${maintainer.username})`;
-      maintainerLink.style.cssText = `
-        font-weight: bold;
-        color: #d97706;
-        text-decoration: none;
-        font-size: 13px;
-      `;
-      maintainerLink.onmouseover = () => maintainerLink.style.textDecoration = 'underline';
-      maintainerLink.onmouseout = () => maintainerLink.style.textDecoration = 'none';
+    keywordsSection.contentWrapper.appendChild(keywordsContext);
 
-      maintainerItem.appendChild(maintainerLink);
-
-      if (maintainer.role) {
-        const roleSpan = document.createElement('span');
-        roleSpan.style.cssText = `
-          font-size: 11px;
-          color: #666;
-          margin-left: 4px;
-        `;
-        roleSpan.textContent = `(${maintainer.role})`;
-        maintainerItem.appendChild(roleSpan);
-      }
-
-      // Show last comment info if available
-      if (maintainer.lastComment) {
-        const lastCommentDiv = document.createElement('div');
-        lastCommentDiv.style.cssText = `
-          font-size: 11px;
-          color: #666;
-          margin-top: 2px;
-        `;
-        lastCommentDiv.innerHTML = `Last commented <a href="${maintainer.lastComment.link}" style="color: #d97706; text-decoration: none;">${maintainer.lastComment.date}</a>`;
-        maintainerItem.appendChild(lastCommentDiv);
-      }
-
-      maintainerBox.appendChild(maintainerItem);
-    });
-
-    // Add link to components page
-    const componentsLink = document.createElement('div');
-    componentsLink.style.cssText = `
-      margin-top: 12px;
-      padding-top: 10px;
-      border-top: 1px solid #fde68a;
-      font-size: 11px;
-    `;
-
-    const link = document.createElement('a');
-    link.href = 'https://make.wordpress.org/core/components/';
-    link.target = '_blank';
-    link.textContent = 'View all WordPress components →';
-    link.style.cssText = `
-      color: #d97706;
-      text-decoration: none;
-      font-weight: 500;
-    `;
-    link.onmouseover = () => link.style.textDecoration = 'underline';
-    link.onmouseout = () => link.style.textDecoration = 'none';
-
-    componentsLink.appendChild(link);
-    maintainerBox.appendChild(componentsLink);
-
-    maintainerSection.contentWrapper.appendChild(maintainerBox);
-    content.appendChild(maintainerSection.container);
-    debug('Maintainer section added to content');
-  }
-
-  // Add Keyword Validation Panel (if issues found)
-  const validationIssues = analyzeKeywordValidation();
-  debug('Keyword validation issues found:', validationIssues.length);
-  if (validationIssues.length > 0) {
-    const validationSection = createCollapsibleSection(
-      'keyword-validation',
-      'Keyword Validation',
-      '⚠️',
-      true // Expanded by default
-    );
-
-    const validationContent = document.createElement('div');
-    validationContent.style.cssText = 'margin-top: 10px;';
-
-    validationIssues.forEach(issue => {
-      const issueDiv = document.createElement('div');
-      const severityColor = {
-        'high': '#f44336',
-        'medium': '#ff9800',
-        'low': '#2196F3'
-      }[issue.severity];
-
-      issueDiv.style.cssText = `
-        padding: 10px;
-        margin-bottom: 8px;
-        border-left: 4px solid ${severityColor};
-        background: #fafafa;
-        font-size: 12px;
-        border-radius: 4px;
-      `;
-
-      const severityLabel = {
-        'high': '🔴 HIGH PRIORITY',
-        'medium': '🟠 MEDIUM',
-        'low': '🔵 LOW'
-      }[issue.severity];
-
-      // Build source info display
-      let sourceDisplay = '';
-      if (issue.source && typeof VALIDATION_RULE_SOURCES !== 'undefined') {
-        const sourceConfig = VALIDATION_RULE_SOURCES[issue.source.type] || VALIDATION_RULE_SOURCES['best-practice'];
-        const sourceIcon = sourceConfig.icon;
-        const sourceColor = sourceConfig.color;
-
-        sourceDisplay = `
-          <div style="font-size: 10px; color: #666; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-            <div style="margin-bottom: 4px;">
-              <span style="color: ${sourceColor};">${sourceIcon} <strong>${sourceConfig.label}</strong></span>
-            </div>
-            <div style="color: #888; font-style: italic;">${issue.source.note || issue.source.title}</div>
-            ${issue.source.url ? `<a href="${issue.source.url}" target="_blank" style="color: #2271b1; text-decoration: none; font-weight: 500;">📖 View documentation →</a>` : ''}
-          </div>
-        `;
-      }
-
-      issueDiv.innerHTML = `
-        <div style="font-weight: bold; color: ${severityColor}; margin-bottom: 6px;">${severityLabel}</div>
-        <div style="color: #333; margin-bottom: 6px;">${issue.message}</div>
-        <div style="font-size: 11px; color: #666; margin-bottom: 4px;">
-          Added by: <strong>${issue.author}</strong> (${issue.authorRole})
-        </div>
-        ${issue.recommendation ? `<div style="font-size: 11px; color: #555; font-style: italic; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0e0e0;">💡 ${issue.recommendation}</div>` : ''}
-        ${sourceDisplay}
-      `;
-
-      validationContent.appendChild(issueDiv);
-    });
-
-    validationSection.contentWrapper.appendChild(validationContent);
-    content.appendChild(validationSection.container);
-    debug('Keyword validation panel added to content');
-  }
-
-  // Add Keywords section header and context
-  const keywordsSection = createCollapsibleSection('keywords', 'TRAC Keywords', '🏷️', true);
-
-  const keywordsContext = document.createElement('div');
-  keywordsContext.style.cssText = `
-    font-size: 12px;
-    color: #666;
-    margin-bottom: 12px;
-    line-height: 1.5;
-  `;
-
-  if (keywords.length > 0) {
-    keywordsContext.innerHTML = `According to the keywords, the current state of this issue is:`;
-  } else {
-    keywordsContext.innerHTML = `This ticket has <strong>no keywords</strong> assigned yet. Keywords help categorize and track the status of tickets.`;
-  }
-
-  keywordsSection.contentWrapper.appendChild(keywordsContext);
-
-  // Show message if no keywords, otherwise list them
-  if (keywords.length === 0) {
-    const noKeywordsMsg = document.createElement('div');
-    noKeywordsMsg.style.cssText = `
-      margin-bottom: 16px;
-      padding: 12px;
-      background: #fff3cd;
-      border-left: 3px solid #ffc107;
-      border-radius: 4px;
-      font-size: 13px;
-      color: #856404;
-    `;
-    noKeywordsMsg.innerHTML = `<strong>ℹ️ No keywords found.</strong><br>Consider adding relevant keywords to help with triage and categorization.`;
-    keywordsSection.contentWrapper.appendChild(noKeywordsMsg);
-  }
-
-  // Add each keyword
-  keywords.forEach(keyword => {
-    const keywordLower = keyword.toLowerCase();
-    const keywordData = KEYWORD_DATA[keywordLower];
-
-    if (keywordData) {
-      const item = document.createElement('div');
-      item.style.cssText = `
+    if (keywords.length === 0) {
+      const noKeywordsMsg = document.createElement('div');
+      noKeywordsMsg.style.cssText = `
         margin-bottom: 16px;
         padding: 12px;
-        background: #f9f9f9;
-        border-left: 3px solid ${keywordData.color};
+        background: #fff3cd;
+        border-left: 3px solid #ffc107;
         border-radius: 4px;
-      `;
-
-      const label = document.createElement('div');
-      label.style.cssText = `
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 4px;
-      `;
-      label.textContent = keywordData.label;
-
-      const description = document.createElement('div');
-      description.style.cssText = `
         font-size: 13px;
-        color: #666;
-        margin-bottom: 4px;
+        color: #856404;
       `;
-      description.textContent = keywordData.description;
+      noKeywordsMsg.innerHTML = `<strong>ℹ️ No keywords found.</strong><br>Consider adding relevant keywords to help with triage and categorization.`;
+      keywordsSection.contentWrapper.appendChild(noKeywordsMsg);
+    }
 
-      const usage = document.createElement('div');
-      usage.style.cssText = `
-        font-size: 12px;
-        color: #888;
-        font-style: italic;
-      `;
-      usage.textContent = 'Usage: ' + keywordData.usage;
+    keywords.forEach(keyword => {
+      const keywordLower = keyword.toLowerCase();
+      const keywordData = KEYWORD_DATA[keywordLower];
+      const keywordHistory = extractKeywordHistory();
 
-      item.appendChild(label);
-      item.appendChild(description);
-      item.appendChild(usage);
-
-      // Add keyword history (when it was added)
-      const history = keywordHistory[keywordLower];
-      if (history) {
-        const historyDiv = document.createElement('div');
-        historyDiv.style.cssText = `
-          font-size: 11px;
-          color: #555;
-          margin-top: 8px;
-          padding-top: 8px;
-          border-top: 1px solid #ddd;
+      if (keywordData) {
+        const item = document.createElement('div');
+        item.style.cssText = `
+          margin-bottom: 16px;
+          padding: 12px;
+          background: #f9f9f9;
+          border-left: 3px solid ${keywordData.color};
+          border-radius: 4px;
         `;
 
-        // Create text with linked author name
-        const addedText = document.createTextNode(`Added ${history.date} by `);
-        historyDiv.appendChild(addedText);
-
-        const authorLink = document.createElement('a');
-        authorLink.href = `https://profiles.wordpress.org/${history.author}/`;
-        authorLink.target = '_blank';
-        authorLink.textContent = history.author;
-        authorLink.style.cssText = `
-          color: #2271b1;
-          text-decoration: none;
+        const label = document.createElement('div');
+        label.style.cssText = `
+          font-weight: bold;
+          color: #333;
+          margin-bottom: 4px;
         `;
-        authorLink.onmouseover = () => authorLink.style.textDecoration = 'underline';
-        authorLink.onmouseout = () => authorLink.style.textDecoration = 'none';
-        historyDiv.appendChild(authorLink);
+        label.textContent = keywordData.label;
 
-        if (history.commentLink) {
-          const commentLink = document.createElement('a');
-          commentLink.href = history.commentLink;
-          commentLink.textContent = ' → View comment';
-          commentLink.style.cssText = `
+        const description = document.createElement('div');
+        description.style.cssText = `
+          font-size: 13px;
+          color: #666;
+          margin-bottom: 4px;
+        `;
+        description.textContent = keywordData.description;
+
+        const usage = document.createElement('div');
+        usage.style.cssText = `
+          font-size: 12px;
+          color: #888;
+          font-style: italic;
+        `;
+        usage.textContent = 'Usage: ' + keywordData.usage;
+
+        item.appendChild(label);
+        item.appendChild(description);
+        item.appendChild(usage);
+
+        const history = keywordHistory[keywordLower];
+        if (history) {
+          const historyDiv = document.createElement('div');
+          historyDiv.style.cssText = `
+            font-size: 11px;
+            color: #555;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #ddd;
+          `;
+
+          const addedText = document.createTextNode(`Added ${history.date} by `);
+          historyDiv.appendChild(addedText);
+
+          const authorLink = document.createElement('a');
+          authorLink.href = `https://profiles.wordpress.org/${history.author}/`;
+          authorLink.target = '_blank';
+          authorLink.textContent = history.author;
+          authorLink.style.cssText = `
             color: #2271b1;
             text-decoration: none;
-            margin-left: 4px;
           `;
-          commentLink.onmouseover = () => commentLink.style.textDecoration = 'underline';
-          commentLink.onmouseout = () => commentLink.style.textDecoration = 'none';
-          historyDiv.appendChild(commentLink);
+          authorLink.onmouseover = () => authorLink.style.textDecoration = 'underline';
+          authorLink.onmouseout = () => authorLink.style.textDecoration = 'none';
+          historyDiv.appendChild(authorLink);
+
+          if (history.commentLink) {
+            const commentLink = document.createElement('a');
+            commentLink.href = history.commentLink;
+            commentLink.textContent = ' → View comment';
+            commentLink.style.cssText = `
+              color: #2271b1;
+              text-decoration: none;
+              margin-left: 4px;
+            `;
+            commentLink.onmouseover = () => commentLink.style.textDecoration = 'underline';
+            commentLink.onmouseout = () => commentLink.style.textDecoration = 'none';
+            historyDiv.appendChild(commentLink);
+          }
+
+          item.appendChild(historyDiv);
         }
 
-        item.appendChild(historyDiv);
+        keywordsSection.contentWrapper.appendChild(item);
       }
+    });
 
-      keywordsSection.contentWrapper.appendChild(item);
-    }
-  });
+    sectionsToRender.push({
+      id: 'keywords',
+      element: keywordsSection.container,
+      order: sectionOrder['keywords'] || 7
+    });
+  }
 
-  // Append keywords section to content
-  content.appendChild(keywordsSection.container);
+  // Sort sections by order and append to content
+  sectionsToRender
+    .sort((a, b) => a.order - b.order)
+    .forEach(section => {
+      content.appendChild(section.element);
+    });
 
-  // Append content to sidebar, then sidebar and toggle button to body
+  // Append content to sidebar
   sidebar.appendChild(content);
+
+  // Append sidebar and toggle button to body
   debug('About to append sidebar to body. Sidebar HTML length:', sidebar.innerHTML.length);
   document.body.appendChild(sidebar);
   document.body.appendChild(sidebarToggleBtn);

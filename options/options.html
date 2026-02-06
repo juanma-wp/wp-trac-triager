@@ -282,6 +282,87 @@
       color: #0d47a1;
       line-height: 1.5;
     }
+
+    /* Sortable sidebar sections */
+    .sidebar-section-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      cursor: move;
+      transition: all 0.2s;
+    }
+
+    .sidebar-section-item:hover {
+      background: #f0f0f0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .sidebar-section-item.dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+    }
+
+    .sidebar-section-item.drag-over {
+      border-top: 3px solid #4CAF50;
+    }
+
+    .sidebar-section-item.locked {
+      cursor: default;
+      background: #e3f2fd;
+      border: 1px solid #2196F3;
+    }
+
+    .sidebar-section-item.locked:hover {
+      background: #e3f2fd;
+      box-shadow: none;
+    }
+
+    .drag-handle {
+      font-size: 20px;
+      color: #999;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .section-icon {
+      font-size: 18px;
+    }
+
+    .section-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .section-name {
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .section-description {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .lock-indicator {
+      font-size: 16px;
+      color: #2196F3;
+    }
+
+    .section-toggle {
+      margin-left: auto;
+    }
   </style>
 </head>
 <body>
@@ -292,40 +373,41 @@
     </div>
 
     <div class="content">
-      <!-- Feature Toggles -->
+      <!-- Sidebar Section Manager -->
       <div class="section">
-        <h2 class="section-title">🎨 Features</h2>
-        <p class="section-description">Enable or disable extension features</p>
+        <h2 class="section-title">📋 Sidebar Section Manager</h2>
+        <p class="section-description">Drag to reorder • Toggle to show/hide</p>
+
+        <div id="sidebarSectionsList" style="margin-top: 20px;">
+          <!-- Sections will be dynamically loaded here -->
+        </div>
+
+        <button type="button" id="resetSidebarLayout" class="btn-secondary" style="margin-top: 15px; width: 100%;">
+          ↺ Reset to Default Order
+        </button>
+
+        <div class="info-box" style="margin-top: 15px;">
+          <strong>💡 How it works</strong>
+          <p>
+            <strong>Drag [≡]</strong> to reorder sections<br>
+            <strong>Toggle switch</strong> to show/hide sections<br>
+            <strong>🔒 Quick Info</strong> is always visible and stays at the top
+          </p>
+        </div>
+      </div>
+
+      <!-- Comment Highlighting -->
+      <div class="section">
+        <h2 class="section-title">🎨 Comment Highlighting</h2>
+        <p class="section-description">Visual highlights for core team members</p>
 
         <div class="toggle-group">
           <div class="toggle-label">
-            <strong>Comment Highlighting</strong>
+            <strong>Enable Comment Highlighting</strong>
             <span>Visually highlight comments from core committers, maintainers, and testers</span>
           </div>
           <label class="toggle-switch">
             <input type="checkbox" id="highlightComments" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-group">
-          <div class="toggle-label">
-            <strong>Keyword Sidebar</strong>
-            <span>Show floating sidebar with keyword explanations</span>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="showKeywordSidebar" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-group">
-          <div class="toggle-label">
-            <strong>Maintainer Info Box</strong>
-            <span>Display component maintainer information on tickets</span>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="showMaintainerInfo" checked>
             <span class="slider"></span>
           </label>
         </div>
@@ -356,7 +438,7 @@
       <div class="section">
         <h2 class="section-title">ℹ️ About</h2>
         <p class="section-description">
-          <strong>WP Trac Triager v1.3.0</strong><br>
+          <strong>WP Trac Triager v1.4.0</strong><br>
           Enhance your WordPress Trac ticket triage workflow with visual highlights, keyword explanations, and component maintainer information.
         </p>
         <p class="section-description">
