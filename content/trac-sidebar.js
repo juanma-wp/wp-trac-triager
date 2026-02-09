@@ -1167,16 +1167,20 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   sidebar.id = 'wpt-keyword-sidebar';
   debug('Sidebar element created');
 
-  // Integrated sidebar styling
+  // Get sidebar position from config (default to right)
+  const sidebarPosition = config.sidebarPosition || 'right';
+  const isLeftSide = sidebarPosition === 'left';
+
+  // Integrated sidebar styling - dynamic based on position
   sidebar.style.cssText = `
     position: fixed;
     top: 80px;
-    right: 0;
+    ${isLeftSide ? 'left: 0;' : 'right: 0;'}
     width: 340px;
     height: calc(100vh - 80px);
     background: white;
-    border-left: 1px solid #ddd;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+    ${isLeftSide ? 'border-right: 1px solid #ddd;' : 'border-left: 1px solid #ddd;'}
+    ${isLeftSide ? 'box-shadow: 2px 0 8px rgba(0,0,0,0.1);' : 'box-shadow: -2px 0 8px rgba(0,0,0,0.1);'}
     padding: 16px;
     overflow-y: auto;
     z-index: 1000;
@@ -1187,19 +1191,19 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   // Create toggle button
   const sidebarToggleBtn = document.createElement('button');
   sidebarToggleBtn.id = 'wpt-sidebar-toggle';
-  sidebarToggleBtn.innerHTML = '◀';
+  sidebarToggleBtn.innerHTML = isLeftSide ? '▶' : '◀';
   sidebarToggleBtn.style.cssText = `
     position: fixed;
     top: 50%;
-    right: 0;
+    ${isLeftSide ? 'left: 0;' : 'right: 0;'}
     transform: translateY(-50%);
     width: 32px;
     height: 80px;
     background: white;
     border: 1px solid #ddd;
-    border-right: none;
-    border-radius: 8px 0 0 8px;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+    ${isLeftSide ? 'border-left: none;' : 'border-right: none;'}
+    ${isLeftSide ? 'border-radius: 0 8px 8px 0;' : 'border-radius: 8px 0 0 8px;'}
+    ${isLeftSide ? 'box-shadow: 2px 0 8px rgba(0,0,0,0.1);' : 'box-shadow: -2px 0 8px rgba(0,0,0,0.1);'}
     cursor: pointer;
     display: none;
     align-items: center;
@@ -1221,15 +1225,25 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       sidebar.style.transform = 'translateX(0)';
       sidebarToggleBtn.style.display = 'none';
       if (mainContent) {
-        mainContent.style.marginRight = '340px';
-        mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        if (isLeftSide) {
+          mainContent.style.marginLeft = '340px';
+          mainContent.style.transition = 'margin-left 0.3s ease-in-out';
+        } else {
+          mainContent.style.marginRight = '340px';
+          mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        }
       }
     } else {
-      sidebar.style.transform = 'translateX(100%)';
+      sidebar.style.transform = isLeftSide ? 'translateX(-100%)' : 'translateX(100%)';
       sidebarToggleBtn.style.display = 'flex';
       if (mainContent) {
-        mainContent.style.marginRight = '0';
-        mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        if (isLeftSide) {
+          mainContent.style.marginLeft = '0';
+          mainContent.style.transition = 'margin-left 0.3s ease-in-out';
+        } else {
+          mainContent.style.marginRight = '0';
+          mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        }
       }
     }
     localStorage.setItem('wpt-sidebar-visible', show ? 'true' : 'false');
@@ -1240,10 +1254,17 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   const isVisible = savedVisible !== 'false';
 
   if (mainContent) {
-    mainContent.style.marginRight = isVisible ? '340px' : '0';
+    if (isLeftSide) {
+      mainContent.style.marginLeft = isVisible ? '340px' : '0';
+    } else {
+      mainContent.style.marginRight = isVisible ? '340px' : '0';
+    }
   }
 
   if (!isVisible) {
+    sidebar.style.transform = isLeftSide ? 'translateX(-100%)' : 'translateX(100%)';
+    sidebarToggleBtn.style.display = 'flex';
+  }
     toggleSidebarVisibility(false);
   }
 

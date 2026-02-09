@@ -13,6 +13,7 @@ const defaultSidebarSections = [
 const defaultConfig = {
   highlightComments: true,
   targetWpVersion: '7.0',
+  sidebarPosition: 'right',
   sidebarSections: defaultSidebarSections
 };
 
@@ -26,6 +27,9 @@ function loadSettings() {
 
     // Set target WordPress version
     document.getElementById('targetWpVersion').value = config.targetWpVersion || '7.0';
+
+    // Set sidebar position
+    document.getElementById('sidebarPosition').value = config.sidebarPosition || 'right';
 
     // Merge saved sections with defaults (adds any new sections)
     let sections = config.sidebarSections || defaultSidebarSections;
@@ -212,6 +216,7 @@ function saveSettings() {
 
     config.highlightComments = document.getElementById('highlightComments').checked;
     config.targetWpVersion = document.getElementById('targetWpVersion').value;
+    config.sidebarPosition = document.getElementById('sidebarPosition').value;
 
     // Sidebar sections are saved automatically on change, so just keep existing
     if (!config.sidebarSections) {
