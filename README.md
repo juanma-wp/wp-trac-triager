@@ -1,31 +1,63 @@
 # WP Trac Triager
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Chrome Web Store](https://img.shields.io/badge/Chrome-Extension-blue.svg)](https://chrome.google.com/webstore) [![Version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Chrome Web Store](https://img.shields.io/badge/Chrome-Extension-blue.svg)](https://chrome.google.com/webstore) [![Version](https://img.shields.io/badge/version-1.5.0-green.svg)](CHANGELOG.md)
 
-A Chrome extension that enhances the WordPress Trac ticket triage workflow with visual highlights, keyword explanations, and component maintainer information. Perfect for WordPress contributors who want to streamline their triage process and better understand ticket context at a glance.
+A Chrome extension that enhances the WordPress Trac ticket triage workflow with smart timelines, universal role badges, keyword change history, and a fully customizable sidebar. Perfect for WordPress contributors who want to streamline their triage process and make informed decisions based on complete context.
 
-## Features
+## ✨ Features (v1.5.0)
 
-### 🎨 Comment Highlighting
-- **Core Committers** - Blue border with lightning bolt badge
-- **Component Maintainers** - Green border with wrench badge
-- **Lead Testers** - Purple border with test tube badge
-- **Ticket Reporter** - Orange border with document badge
+### 🕐 Smart Timelines & History
+- **Keyword Change Timeline** - Complete visual history of all keyword additions/removals with color-coded changes (🟢 added, 🔴 removed, 🟠 mixed)
+- **Milestone History Timeline** - Track all milestone changes with punt detection (warns if punted 2+ times)
+- **Interactive Tooltips** - Hover over any keyword to see its description and usage guidelines
+- Direct click-through links to the exact comments where changes occurred
 
-### 📚 Keyword Sidebar
-Floating sidebar showing explanations for all Trac keywords on the current ticket:
-- Color-coded by category (Patch, Testing, Feedback, Design, Documentation, Review)
-- Critical keywords marked with special badge
-- Based on official WordPress Core Handbook
+### 👥 Universal Role Recognition
+- **Role Badges for Everyone** - Every commenter gets a badge (Project Lead, Core Committer, Individual Contributor, etc.)
+- **GitHub Integration** - Automatically detects and badges comments synced from GitHub PRs with "🔗 GitHub PR"
+- **Authority Legend** - Collapsible section showing role distribution with comment count statistics
+- Color-coded by authority level for instant context
 
-### 🔧 Component Maintainer Info
-- Shows component maintainers near the Component field
-- Links to maintainer WordPress.org profiles
-- Indicates when maintainers have commented on the ticket
+### ⚙️ Fully Customizable Sidebar
+- **Drag & Drop Reordering** - Arrange sidebar sections in your preferred order via Settings page
+- **Show/Hide Toggles** - Hide sections you don't use to declutter your workflow
+- **Persistent Preferences** - Settings sync across all your devices via Chrome
+- **Locked Critical Info** - Quick Info section always stays visible at the top
+
+### 📚 Rich Information Sections
+1. **Quick Info** - Ticket summary, reporter, milestone, priority, component
+2. **WordPress Release Schedule** - Next milestone dates with countdown timer
+3. **Recent Comments** - Last 3 comments with role context
+4. **Milestone History** - Visual timeline of all milestone changes
+5. **Keyword Change History** - Complete timeline of keyword additions/removals
+6. **Component Maintainers** - Contact info with links to profiles
+7. **TRAC Keywords** - Explanations for all keywords based on WordPress Core Handbook
+
+### 🎨 Visual Enhancements
+- Color-coded role badges throughout ticket comments
+- Vertical timelines with connecting lines and status dots
+- Inline keyword badges with + (addition) or - (removal) indicators
+- Collapsible sections with persistent state
+- Smooth slide-out sidebar animations
 
 ## Screenshots
 
-![](./assets/snapshot.png)
+<table>
+  <tr>
+    <td align="center">
+      <img src="./assets/snapshot.png" alt="Snapshot" width="33%"/><br/>
+      <b>Snapshot</b>
+    </td>
+    <td align="center">
+      <img src="./assets/sidebar.png" alt="Keyword Sidebar" width="33%"/><br/>
+      <b>Keyword Sidebar</b>
+    </td>
+    <td align="center">
+      <img src="./assets/maintainers.png" alt="Component Maintainers" width="33%"/><br/>
+      <b>Maintainers Highlight</b>
+    </td>
+  </tr>
+</table>
 
 ## Installation
 
@@ -39,7 +71,7 @@ Once published, you can install directly from the [Chrome Web Store](https://chr
 
 1. Clone or download this repository:
    ```bash
-   git clone https://github.com/yourusername/wp-trac-triager.git
+   git clone https://github.com/juanmaguitar/wp-trac-triager.git
    cd wp-trac-triager
    ```
 
@@ -170,7 +202,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and upcoming features.
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/wp-trac-triager.git
+git clone https://github.com/juanmaguitar/wp-trac-triager.git
 cd wp-trac-triager
 
 # Install dev dependencies (optional, for linting)
@@ -243,9 +275,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/wp-trac-triager/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/wp-trac-triager/discussions)
-- **Email**: your.email@example.com
+- **Issues**: [GitHub Issues](https://github.com/juanmaguitar/wp-trac-triager/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/juanmaguitar/wp-trac-triager/discussions)
+- **Email**: juanma.garrido@gmail.com
 
 ## License
 
@@ -253,7 +285,7 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Credits
 
-Built with ❤️ by [Juan Manuel Garrido](https://github.com/yourusername) for the WordPress community.
+Built with ❤️ by [Juan Manuel Garrido](https://github.com/juanmaguitar) for the WordPress community.
 
 ### Data Sources
 
