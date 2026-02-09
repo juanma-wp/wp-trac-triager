@@ -45,15 +45,21 @@ A Chrome extension that enhances the WordPress Trac ticket triage workflow with 
 <table>
   <tr>
     <td align="center">
-      <img src="./assets/snapshot.png" alt="Snapshot" width="33%"/><br/>
+      <a href="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-1.png" target="_blank">
+        <img src="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-1.png" alt="Snapshot" width="33%"/>
+      </a><br/>
       <b>Snapshot</b>
     </td>
     <td align="center">
-      <img src="./assets/sidebar.png" alt="Keyword Sidebar" width="33%"/><br/>
+      <a href="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-2.png" target="_blank">
+        <img src="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-2.png" alt="Keyword Sidebar" width="33%"/>
+      </a><br/>
       <b>Keyword Sidebar</b>
     </td>
     <td align="center">
-      <img src="./assets/maintainers.png" alt="Component Maintainers" width="33%"/><br/>
+      <a href="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-3.png" target="_blank">
+        <img src="https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-3.png" alt="Component Maintainers" width="33%"/>
+      </a><br/>
       <b>Maintainers Highlight</b>
     </td>
   </tr>
