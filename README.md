@@ -4,6 +4,10 @@
 
 A Chrome extension that enhances the WordPress Trac ticket triage workflow with smart timelines, universal role badges, keyword change history, and a fully customizable sidebar. Perfect for WordPress contributors who want to streamline their triage process and make informed decisions based on complete context.
 
+[![snapshot](https://raw.githubusercontent.com/juanma-wp/wp-trac-triager/main/assets/snapshot-1.png)](https://www.youtube.com/watch?v=lEzFKuSF-lg)
+
+[_See video demo_](https://www.youtube.com/watch?v=lEzFKuSF-lg)
+
 ## ✨ Features (v1.5.0)
 
 ### 🕐 Smart Timelines & History
