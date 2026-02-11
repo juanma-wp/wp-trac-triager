@@ -191,6 +191,78 @@ function highlightContributors(wpTracContributorLabels) {
   }
 }
 
+// Helper: Check if user is a core committer or component maintainer
+function isImportantReporter(username, contributorData = {}) {
+  // Check if user has a role in contributor data
+  if (contributorData[username]) {
+    const role = contributorData[username];
+    // Core committers and component maintainers are important
+    const importantRoles = ['Project Lead', 'Lead Developer', 'Core Committer', 'Emeritus Committer', 'Component Maintainer', 'Themes Committer'];
+    return importantRoles.includes(role) ? role : null;
+  }
+  
+  // Also check if user is a component maintainer in MAINTAINER_PROFILES
+  if (typeof MAINTAINER_PROFILES !== 'undefined' && MAINTAINER_PROFILES[username.toLowerCase()]) {
+    return 'Component Maintainer';
+  }
+  
+  return null;
+}
+
+// Helper: Highlight reporter cell in main ticket table if core committer/maintainer
+function highlightImportantReporter(contributorData = {}) {
+  const reporterCell = document.querySelector('#ticket td[headers="h_reporter"]');
+  if (!reporterCell) return;
+  
+  const reporterLink = reporterCell.querySelector('a.trac-author');
+  if (!reporterLink) return;
+  
+  const reporter = reporterLink.textContent.trim();
+  const reporterRole = isImportantReporter(reporter, contributorData);
+  
+  if (reporterRole) {
+    // Color scheme matching comment highlighting
+    const roleColors = {
+      'Project Lead': { border: '#9C27B0', bg: '#F3E5F5', badge: '#9C27B0' },
+      'Lead Developer': { border: '#2196F3', bg: '#E3F2FD', badge: '#2196F3' },
+      'Core Committer': { border: '#4CAF50', bg: '#E8F5E9', badge: '#4CAF50' },
+      'Emeritus Committer': { border: '#FF9800', bg: '#FFF3E0', badge: '#FF9800' },
+      'Component Maintainer': { border: '#009688', bg: '#E0F2F1', badge: '#009688' },
+      'Lead Tester': { border: '#E91E63', bg: '#FCE4EC', badge: '#E91E63' },
+      'Themes Committer': { border: '#00BCD4', bg: '#E0F7FA', badge: '#00BCD4' },
+      'default': { border: '#607D8B', bg: '#ECEFF1', badge: '#607D8B' }
+    };
+
+    const colors = roleColors[reporterRole] || roleColors['default'];
+
+    // Highlight the reporter cell with role-specific colors
+    reporterCell.style.backgroundColor = colors.bg;
+    reporterCell.style.borderLeft = `3px solid ${colors.border}`;
+    reporterCell.style.paddingLeft = '8px';
+
+    // Add a badge after the reporter name
+    let badge = reporterCell.querySelector('.wpt-reporter-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'wpt-reporter-badge';
+      badge.style.cssText = `
+        display: inline-block;
+        background: ${colors.badge};
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-weight: bold;
+        margin-left: 8px;
+        vertical-align: middle;
+      `;
+      badge.textContent = reporterRole;
+      badge.title = `This ticket was reported by a ${reporterRole}`;
+      reporterCell.appendChild(badge);
+    }
+  }
+}
+
 // Helper: Create collapsible section with persistent state
 function createCollapsibleSection(sectionId, title, icon, defaultExpanded = true) {
   const isExpanded = localStorage.getItem(`wpt-section-${sectionId}`) !== 'false';
@@ -1008,19 +1080,19 @@ function getRoleColor(role) {
     return ROLE_COLORS[role] || '#757575';
   }
 
-  // Fallback colors if ROLE_COLORS not loaded
+  // Fallback colors if ROLE_COLORS not loaded (Material Design scheme)
   const colors = {
-    'Project Lead': '#e91e63',
-    'Lead Developer': '#9c27b0',
-    'Core Committer': '#3f51b5',
-    'Emeritus Committer': '#ff9800',
+    'Project Lead': '#9C27B0',
+    'Lead Developer': '#2196F3',
+    'Core Committer': '#4CAF50',
+    'Emeritus Committer': '#FF9800',
     'Component Maintainer': '#009688',
-    'Lead Tester': '#e91e63',
-    'Themes Committer': '#00bcd4',
-    'Individual Contributor': '#757575',
+    'Lead Tester': '#E91E63',
+    'Themes Committer': '#00BCD4',
+    'Individual Contributor': '#607D8B',
     'Reporter': '#795548'
   };
-  return colors[role] || '#757575';
+  return colors[role] || '#607D8B';
 }
 
 // Helper: Format milestone as link if it's a WordPress version
@@ -1548,6 +1620,9 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       if (item.required || item.value) {
         // Special handling for closed status - make it prominent
         const isClosed = item.label === 'Status' && item.value && item.value.toLowerCase() === 'closed';
+        
+        // Check if reporter is a core committer or component maintainer
+        const isImportant = item.label === 'Reporter' && isImportantReporter(item.value, contributorData);
 
         // Special handling for resolution - get color-coded styling
         const isResolution = item.isResolution;
@@ -1651,6 +1726,39 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
           link.onmouseover = () => link.style.textDecoration = 'underline';
           link.onmouseout = () => link.style.textDecoration = 'none';
           valueContainer.appendChild(link);
+          
+          // Add badge for important reporters
+          if (isImportant) {
+            // Color scheme matching comment highlighting
+            const roleColors = {
+              'Project Lead': { border: '#9C27B0', bg: '#F3E5F5', badge: '#9C27B0' },
+              'Lead Developer': { border: '#2196F3', bg: '#E3F2FD', badge: '#2196F3' },
+              'Core Committer': { border: '#4CAF50', bg: '#E8F5E9', badge: '#4CAF50' },
+              'Emeritus Committer': { border: '#FF9800', bg: '#FFF3E0', badge: '#FF9800' },
+              'Component Maintainer': { border: '#009688', bg: '#E0F2F1', badge: '#009688' },
+              'Lead Tester': { border: '#E91E63', bg: '#FCE4EC', badge: '#E91E63' },
+              'Themes Committer': { border: '#00BCD4', bg: '#E0F7FA', badge: '#00BCD4' },
+              'default': { border: '#607D8B', bg: '#ECEFF1', badge: '#607D8B' }
+            };
+
+            const colors = roleColors[isImportant] || roleColors['default'];
+
+            const badge = document.createElement('span');
+            badge.style.cssText = `
+              display: inline-block;
+              background: ${colors.badge};
+              color: white;
+              padding: 2px 6px;
+              border-radius: 3px;
+              font-size: 9px;
+              font-weight: bold;
+              margin-left: 6px;
+              vertical-align: middle;
+            `;
+            badge.textContent = isImportant;
+            badge.title = `This ticket was reported by a ${isImportant}`;
+            valueContainer.appendChild(badge);
+          }
         }
         // Plain text values
         else {
@@ -2466,6 +2574,9 @@ document.addEventListener('wpt-data-ready', function() {
     } catch (e) {
     }
   }
+
+  // Highlight reporter in ticket table if they're important
+  setTimeout(() => highlightImportantReporter(contributorData), 200);
 
   // Wait a bit for highlighting to complete
   setTimeout(() => createKeywordSidebar(contributorData), 500);
