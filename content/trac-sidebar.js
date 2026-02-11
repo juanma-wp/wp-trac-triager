@@ -48,6 +48,10 @@ document.addEventListener('wpt-data-ready', function() {
 function highlightContributors(wpTracContributorLabels) {
   const comments = document.querySelectorAll('.change');
 
+  // Ticket reporter (from ticket property table) – highlight their comments too
+  const reporterLink = document.querySelector('#ticket td[headers="h_reporter"] a.trac-author');
+  const reporterUsername = reporterLink ? reporterLink.textContent.trim() : '';
+
   // Color scheme for different roles
   const roleColors = {
     'Project Lead': { border: '#9C27B0', bg: '#F3E5F5', badge: '#9C27B0' }, // Purple
@@ -56,6 +60,7 @@ function highlightContributors(wpTracContributorLabels) {
     'Emeritus Committer': { border: '#FF9800', bg: '#FFF3E0', badge: '#FF9800' }, // Orange
     'Lead Tester': { border: '#E91E63', bg: '#FCE4EC', badge: '#E91E63' }, // Pink
     'Themes Committer': { border: '#00BCD4', bg: '#E0F7FA', badge: '#00BCD4' }, // Cyan
+    'Reporter': { border: '#795548', bg: '#EFEBE9', badge: '#795548' }, // Brown (reporter)
     'default': { border: '#607D8B', bg: '#ECEFF1', badge: '#607D8B' } // Gray
   };
 
@@ -68,14 +73,30 @@ function highlightContributors(wpTracContributorLabels) {
 
     const username = authorLink.textContent.trim();
 
-    // Only highlight and badge core team members
-    if (!wpTracContributorLabels[username]) return;
+    // Detect multiple roles: Reporter (primary if ticket author) + authority role (secondary)
+    const isReporter = reporterUsername && username === reporterUsername;
+    const authorityRole = wpTracContributorLabels[username] || null;
 
-    const role = wpTracContributorLabels[username];
-    const colors = roleColors[role] || roleColors['default'];
+    // Determine roles to display
+    const roles = [];
+    if (isReporter) {
+      roles.push('Reporter'); // Primary role
+    }
+    if (authorityRole) {
+      roles.push(authorityRole); // Secondary role (if exists)
+    }
 
-    // Count role appearances for legend (core team only)
-    roleStats[role] = (roleStats[role] || 0) + 1;
+    // Skip if no roles
+    if (roles.length === 0) return;
+
+    // Primary role determines the border/background highlight
+    const primaryRole = roles[0];
+    const colors = roleColors[primaryRole] || roleColors['default'];
+
+    // Count role appearances for legend (includes core team and reporter)
+    roles.forEach(role => {
+      roleStats[role] = (roleStats[role] || 0) + 1;
+    });
 
     // Check if this is a GitHub-synced comment
     const header = comment.querySelector('h3.change');
@@ -105,35 +126,40 @@ function highlightContributors(wpTracContributorLabels) {
       tracBadge.style.display = 'none';
     }
 
-    // Check if our badge already exists
-    let ourBadge = authorContainer.querySelector('.wpt-role-badge');
+    // Remove any existing role badges (for re-rendering on updates)
+    authorContainer.querySelectorAll('.wpt-role-badge').forEach(badge => badge.remove());
 
-    if (!ourBadge) {
-      // Create our colored badge
-      ourBadge = document.createElement('span');
-      ourBadge.className = 'wpt-role-badge';
-      ourBadge.textContent = role;
+    // Create badge(s) for each role
+    const usernameSpan = authorLink.querySelector('.username');
+    const insertionPoint = usernameSpan ? usernameSpan.nextSibling : null;
 
-      // Insert after the username span
-      const usernameSpan = authorLink.querySelector('.username');
-      if (usernameSpan) {
-        usernameSpan.parentElement.insertBefore(ourBadge, usernameSpan.nextSibling);
+    roles.forEach((role, index) => {
+      const badge = document.createElement('span');
+      badge.className = 'wpt-role-badge';
+      badge.textContent = role;
+
+      // Get color for this specific role
+      const roleColor = roleColors[role] || roleColors['default'];
+
+      // Style the badge with role-specific color
+      badge.style.cssText = `
+        display: inline-block;
+        background: ${roleColor.badge};
+        color: white;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-left: ${index === 0 ? '8px' : '4px'};
+      `;
+
+      // Insert badge after username or after previous badge
+      if (insertionPoint) {
+        usernameSpan.parentElement.insertBefore(badge, insertionPoint);
       } else {
-        authorLink.appendChild(ourBadge);
+        authorLink.appendChild(badge);
       }
-    }
-
-    // Style our badge with role-specific color
-    ourBadge.style.cssText = `
-      display: inline-block;
-      background: ${colors.badge};
-      color: white;
-      padding: 2px 8px;
-      border-radius: 3px;
-      font-size: 11px;
-      font-weight: bold;
-      margin-left: 8px;
-    `;
+    });
 
     // Add GitHub sync indicator if applicable
     if (isGitHubSynced) {
@@ -1049,7 +1075,8 @@ function getRoleColor(role) {
     'Component Maintainer': '#009688',
     'Lead Tester': '#e91e63',
     'Themes Committer': '#00bcd4',
-    'Individual Contributor': '#757575'
+    'Individual Contributor': '#757575',
+    'Reporter': '#795548'
   };
   return colors[role] || '#757575';
 }
@@ -1097,7 +1124,7 @@ function addAuthorityLegend(roleStats) {
 
     const legendSection = createCollapsibleSection(
       'authority-legend',
-      'Authority Hierarchy',
+      'Comment Roles',
       '👥'
     );
 
@@ -1243,16 +1270,20 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   sidebar.id = 'wpt-keyword-sidebar';
   debug('Sidebar element created');
 
-  // Integrated sidebar styling
+  // Get sidebar position from config (default to right)
+  const sidebarPosition = config.sidebarPosition || 'right';
+  const isLeftSide = sidebarPosition === 'left';
+
+  // Integrated sidebar styling - dynamic based on position
   sidebar.style.cssText = `
     position: fixed;
     top: 80px;
-    right: 0;
+    ${isLeftSide ? 'left: 0;' : 'right: 0;'}
     width: 340px;
     height: calc(100vh - 80px);
     background: white;
-    border-left: 1px solid #ddd;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+    ${isLeftSide ? 'border-right: 1px solid #ddd;' : 'border-left: 1px solid #ddd;'}
+    ${isLeftSide ? 'box-shadow: 2px 0 8px rgba(0,0,0,0.1);' : 'box-shadow: -2px 0 8px rgba(0,0,0,0.1);'}
     padding: 16px;
     overflow-y: auto;
     z-index: 1000;
@@ -1263,19 +1294,19 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   // Create toggle button
   const sidebarToggleBtn = document.createElement('button');
   sidebarToggleBtn.id = 'wpt-sidebar-toggle';
-  sidebarToggleBtn.innerHTML = '◀';
+  sidebarToggleBtn.innerHTML = isLeftSide ? '▶' : '◀';
   sidebarToggleBtn.style.cssText = `
     position: fixed;
     top: 50%;
-    right: 0;
+    ${isLeftSide ? 'left: 0;' : 'right: 0;'}
     transform: translateY(-50%);
     width: 32px;
     height: 80px;
     background: white;
     border: 1px solid #ddd;
-    border-right: none;
-    border-radius: 8px 0 0 8px;
-    box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+    ${isLeftSide ? 'border-left: none;' : 'border-right: none;'}
+    ${isLeftSide ? 'border-radius: 0 8px 8px 0;' : 'border-radius: 8px 0 0 8px;'}
+    ${isLeftSide ? 'box-shadow: 2px 0 8px rgba(0,0,0,0.1);' : 'box-shadow: -2px 0 8px rgba(0,0,0,0.1);'}
     cursor: pointer;
     display: none;
     align-items: center;
@@ -1297,15 +1328,25 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       sidebar.style.transform = 'translateX(0)';
       sidebarToggleBtn.style.display = 'none';
       if (mainContent) {
-        mainContent.style.marginRight = '340px';
-        mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        if (isLeftSide) {
+          mainContent.style.marginLeft = '340px';
+          mainContent.style.transition = 'margin-left 0.3s ease-in-out';
+        } else {
+          mainContent.style.marginRight = '340px';
+          mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        }
       }
     } else {
-      sidebar.style.transform = 'translateX(100%)';
+      sidebar.style.transform = isLeftSide ? 'translateX(-100%)' : 'translateX(100%)';
       sidebarToggleBtn.style.display = 'flex';
       if (mainContent) {
-        mainContent.style.marginRight = '0';
-        mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        if (isLeftSide) {
+          mainContent.style.marginLeft = '0';
+          mainContent.style.transition = 'margin-left 0.3s ease-in-out';
+        } else {
+          mainContent.style.marginRight = '0';
+          mainContent.style.transition = 'margin-right 0.3s ease-in-out';
+        }
       }
     }
     localStorage.setItem('wpt-sidebar-visible', show ? 'true' : 'false');
@@ -1316,7 +1357,11 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   const isVisible = savedVisible !== 'false';
 
   if (mainContent) {
-    mainContent.style.marginRight = isVisible ? '340px' : '0';
+    if (isLeftSide) {
+      mainContent.style.marginLeft = isVisible ? '340px' : '0';
+    } else {
+      mainContent.style.marginRight = isVisible ? '340px' : '0';
+    }
   }
 
   if (!isVisible) {
