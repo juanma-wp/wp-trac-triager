@@ -300,6 +300,24 @@ function getTicketSummary() {
   summary.status = statusElement ? statusElement.textContent.trim() : '';
   summary.statusUrl = statusElement ? statusElement.href : null;
 
+  // Resolution - from span.trac-resolution (only present on closed tickets)
+  const resolutionSpan = document.querySelector('.trac-resolution');
+  if (resolutionSpan) {
+    const resolutionLink = resolutionSpan.querySelector('a');
+    if (resolutionLink) {
+      summary.resolution = resolutionLink.textContent.trim();
+      summary.resolutionUrl = resolutionLink.href;
+    } else {
+      // Fallback: extract text from parentheses
+      const resText = resolutionSpan.textContent.trim();
+      summary.resolution = resText.replace(/[()]/g, '').trim();
+      summary.resolutionUrl = null;
+    }
+  } else {
+    summary.resolution = '';
+    summary.resolutionUrl = null;
+  }
+
   // Type - from span.trac-type
   const typeElement = document.querySelector('.trac-type a');
   summary.type = typeElement ? typeElement.textContent.trim() : '';
@@ -1371,33 +1389,33 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   `;
 
+  // Get ticket summary early (needed for closed banner and Quick Info)
+  const ticketSummary = getTicketSummary();
+
   // Check if ticket is closed and add prominent warning banner
-  const statusElement = document.querySelector('.trac-status a');
-  const ticketStatus = statusElement ? statusElement.textContent.trim().toLowerCase() : '';
+  const ticketStatus = ticketSummary.status ? ticketSummary.status.toLowerCase() : '';
 
   if (ticketStatus === 'closed') {
-    // Extract close reason from the ticket header (e.g., "closed defect (bug) (worksforme)")
-    const ticketHeader = document.querySelector('#ticket h2.summary');
-    let closeReason = '';
-    if (ticketHeader) {
-      const headerText = ticketHeader.textContent;
-      // Extract text in parentheses after "closed"
-      const reasonMatch = headerText.match(/closed\s+[^(]*\(([^)]+)\)/);
-      if (reasonMatch) {
-        closeReason = reasonMatch[1];
-      }
-    }
+    // Get resolution from ticket summary
+    const resolution = ticketSummary.resolution;
+    const resolutionDetails = resolution ? getResolutionDetails(resolution) : null;
 
     const closedBanner = document.createElement('div');
     closedBanner.id = 'wpt-closed-banner';
+
+    // Use resolution-specific colors if available, otherwise default red
+    const bannerColor = resolutionDetails ? resolutionDetails.color : '#dc2626';
+    const bannerBg = resolutionDetails ? resolutionDetails.bgColor : '#fef2f2';
+    const bannerBorder = resolutionDetails ? resolutionDetails.borderColor : '#fca5a5';
+
     closedBanner.style.cssText = `
-      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-      color: white;
+      background: ${bannerBg};
+      color: ${bannerColor};
       padding: 16px;
       margin-bottom: 16px;
       border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
-      border: 2px solid #991b1b;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border: 2px solid ${bannerBorder};
     `;
 
     const icon = document.createElement('div');
@@ -1406,7 +1424,7 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       text-align: center;
       margin-bottom: 8px;
     `;
-    icon.textContent = '🔒';
+    icon.textContent = resolutionDetails ? resolutionDetails.icon : '🔒';
 
     const title = document.createElement('div');
     title.style.cssText = `
@@ -1419,38 +1437,44 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
     `;
     title.textContent = 'TICKET CLOSED';
 
-    const message = document.createElement('div');
-    message.style.cssText = `
-      font-size: 13px;
+    const resolutionTitle = document.createElement('div');
+    resolutionTitle.style.cssText = `
+      font-size: 14px;
+      font-weight: bold;
       text-align: center;
-      opacity: 0.95;
-      line-height: 1.5;
+      margin-bottom: 10px;
     `;
 
-    if (closeReason) {
-      message.innerHTML = `This ticket was closed as:<br><strong style="font-size: 14px;">${closeReason}</strong>`;
-    } else {
-      message.textContent = 'This ticket is no longer active';
+    if (resolutionDetails) {
+      resolutionTitle.innerHTML = `Resolution: <span style="text-transform: uppercase; letter-spacing: 0.5px;">${resolutionDetails.title}</span>`;
     }
 
-    const note = document.createElement('div');
-    note.style.cssText = `
-      font-size: 11px;
+    const explanation = document.createElement('div');
+    explanation.style.cssText = `
+      font-size: 13px;
       text-align: center;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.3);
-      opacity: 0.9;
+      line-height: 1.6;
+      margin-top: 8px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
     `;
-    note.textContent = 'No further triage needed';
+
+    if (resolutionDetails) {
+      explanation.textContent = resolutionDetails.explanation;
+    } else {
+      explanation.textContent = 'This ticket is no longer active. No further triage needed.';
+    }
 
     closedBanner.appendChild(icon);
     closedBanner.appendChild(title);
-    closedBanner.appendChild(message);
-    closedBanner.appendChild(note);
+    if (resolutionDetails) {
+      closedBanner.appendChild(resolutionTitle);
+    }
+    closedBanner.appendChild(explanation);
 
     stickyHeader.appendChild(closedBanner);
-    debug('Added closed ticket banner to sticky header');
+    debug('Added closed ticket banner to sticky header with resolution:', resolution);
   }
 
   // Collect all sections with their order
@@ -1462,7 +1486,7 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   // Section 1: Quick Info (always enabled, locked) - goes in sticky header
   let quickInfoSection = null;
   if (isSectionEnabled('quick-info', config)) {
-    const ticketSummary = getTicketSummary();
+    // ticketSummary already defined earlier (needed for closed banner)
     quickInfoSection = createCollapsibleSection('quick-info', `${ticketSummary.id} Quick Info`, '', true);
 
     // Quick Info is NOT sticky itself - it's part of the sticky header
@@ -1522,6 +1546,17 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       { label: 'Keywords', value: ticketSummary.keywords || 'None', isKeywords: true }
     ];
 
+    // Add resolution field if ticket is closed
+    if (ticketSummary.status && ticketSummary.status.toLowerCase() === 'closed' && ticketSummary.resolution) {
+      // Insert resolution after status (at index 1)
+      summaryItems.splice(1, 0, {
+        label: 'Resolution',
+        value: ticketSummary.resolution,
+        url: ticketSummary.resolutionUrl,
+        isResolution: true
+      });
+    }
+
     summaryItems.forEach(item => {
       if (item.required || item.value) {
         // Special handling for closed status - make it prominent
@@ -1529,6 +1564,10 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
         
         // Check if reporter is a core committer or component maintainer
         const isImportant = item.label === 'Reporter' && isImportantReporter(item.value, contributorData);
+
+        // Special handling for resolution - get color-coded styling
+        const isResolution = item.isResolution;
+        const resolutionDetails = isResolution ? getResolutionDetails(item.value) : null;
 
         const itemDiv = document.createElement('div');
         itemDiv.style.cssText = `
@@ -1538,13 +1577,13 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
           justify-content: space-between;
           ${item.isKeywords ? 'align-items: flex-start;' : ''}
           ${isClosed ? 'background: #fee2e2; padding: 6px; border-radius: 4px; border-left: 3px solid #dc2626;' : ''}
-          ${isImportant ? 'background: #e8f5e9; padding: 6px; border-radius: 4px; border-left: 3px solid #4CAF50;' : ''}
+          ${isResolution && resolutionDetails ? `background: ${resolutionDetails.bgColor}; padding: 6px; border-radius: 4px; border-left: 3px solid ${resolutionDetails.borderColor};` : ''}
         `;
 
         const labelSpan = document.createElement('span');
         labelSpan.style.cssText = `
-          color: ${isClosed ? '#991b1b' : isImportant ? '#2e7d32' : '#6c757d'};
-          font-weight: ${isClosed || isImportant ? 'bold' : '500'};
+          color: ${isClosed ? '#991b1b' : (isResolution && resolutionDetails ? resolutionDetails.color : '#6c757d')};
+          font-weight: ${isClosed || isResolution ? 'bold' : '500'};
           ${item.isKeywords ? 'padding-top: 1px;' : ''}
         `;
         labelSpan.textContent = item.label + ':';
@@ -1555,12 +1594,12 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
           : 'overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
 
         valueContainer.style.cssText = `
-          color: ${isClosed ? '#dc2626' : '#212529'};
-          font-weight: ${isClosed ? 'bold' : '600'};
+          color: ${isClosed ? '#dc2626' : (isResolution && resolutionDetails ? resolutionDetails.color : '#212529')};
+          font-weight: ${isClosed || isResolution ? 'bold' : '600'};
           text-align: right;
           max-width: 60%;
           ${wrapStyle}
-          ${isClosed ? 'text-transform: uppercase;' : ''}
+          ${isClosed || isResolution ? 'text-transform: uppercase;' : ''}
         `;
 
         // Handle keywords as individual links
@@ -1584,6 +1623,35 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
               valueContainer.appendChild(document.createTextNode(' '));
             }
           });
+        }
+        // Handle resolution with icon
+        else if (isResolution && resolutionDetails) {
+          // Add icon
+          const icon = document.createElement('span');
+          icon.textContent = resolutionDetails.icon + ' ';
+          icon.style.cssText = 'margin-right: 4px;';
+          valueContainer.appendChild(icon);
+
+          // Add resolution text (with link if available)
+          if (item.url) {
+            const link = document.createElement('a');
+            link.href = item.url;
+            link.textContent = item.value;
+            link.target = '_blank';
+            link.style.cssText = `
+              color: ${resolutionDetails.color};
+              text-decoration: none;
+              font-weight: bold;
+            `;
+            link.onmouseover = () => link.style.textDecoration = 'underline';
+            link.onmouseout = () => link.style.textDecoration = 'none';
+            valueContainer.appendChild(link);
+          } else {
+            const text = document.createElement('span');
+            text.textContent = item.value;
+            text.style.fontWeight = 'bold';
+            valueContainer.appendChild(text);
+          }
         }
         // Handle linked values
         else if (item.url) {

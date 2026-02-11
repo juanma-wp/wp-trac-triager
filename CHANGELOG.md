@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-02-10
 
 ### Added - Reporter Highlighting for Core Team Members
 
@@ -26,6 +26,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Triaging Priority**: Quickly identify tickets that should be reviewed with higher priority
 - **Context Awareness**: Understand when a ticket comes from an experienced contributor who likely has deep knowledge
 - **Efficient Workflow**: Reduce time spent evaluating the importance of tickets during triage
+
+### Added - Resolution Explanations for Closed Tickets
+
+#### Enhanced Closed Ticket Information
+- **Resolution Field Extraction**: Extension now properly extracts and displays the resolution field from closed tickets (fixed, invalid, worksforme, wontfix, maybelater, duplicate, reported-upstream)
+- **Official Explanations**: Shows the official WordPress Trac handbook explanation for each resolution type
+- **Color-Coded Banners**: Different resolutions get different colored banners:
+  - ✅ Fixed: Green (success)
+  - ❌ Invalid: Red (error)
+  - 🤔 Works For Me: Purple
+  - 🚫 Won't Fix: Amber
+  - ⏸️ Maybe Later: Gray
+  - 📋 Duplicate: Blue
+  - ⬆️ Reported Upstream: Cyan
+- **Quick Info Integration**: Resolution field now appears in the Quick Info section below Status when ticket is closed
+- **Visual Consistency**: Resolution uses the same color-coded styling as the banner for easy recognition
+
+#### Technical Implementation
+- **New Data File**: `data/resolution-reasons.js` - Contains all official resolution definitions from WordPress Trac handbook
+- **Enhanced Extraction**: Updated `getTicketSummary()` to properly extract resolution from `td[headers="h_resolution"]`
+- **Improved Banner**: Closed ticket banner now shows resolution icon, title, and full explanation instead of generic message
+- **Helper Function**: `getResolutionDetails()` - Handles resolution normalization and returns appropriate styling
+
+#### User Experience Benefits
+- **Clearer Context**: New contributors immediately understand why a ticket was closed
+- **Educational**: Learn WordPress Trac resolution meanings without reading documentation
+- **Triage Efficiency**: Quickly understand ticket status without reading through all comments
+- **Consistent Messaging**: Uses official WordPress Trac handbook language
+
+### Fixed
+- Fixed bug where closed ticket banner showed generic "no longer active" message instead of actual resolution
+- Fixed missing resolution field in ticket summary extraction
 
 ## [1.5.0] - 2026-02-09
 

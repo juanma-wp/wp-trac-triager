@@ -73,9 +73,9 @@ A Chrome extension that enhances the WordPress Trac ticket triage workflow with 
 
 ### From Chrome Web Store (Recommended)
 
-*Coming soon - Extension pending review*
+You can install directly from the [Chrome Web Store](https://chrome.google.com/webstore).
 
-Once published, you can install directly from the [Chrome Web Store](https://chrome.google.com/webstore).
+https://chromewebstore.google.com/detail/wp-trac-triager/fhlhkchpljijkhhmichmfdhedangngol?authuser=0&hl=es
 
 ### Manual Installation (Development)
 
