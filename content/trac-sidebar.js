@@ -221,11 +221,25 @@ function highlightImportantReporter(contributorData = {}) {
   const reporterRole = isImportantReporter(reporter, contributorData);
   
   if (reporterRole) {
-    // Highlight the reporter cell with green background
-    reporterCell.style.backgroundColor = '#e8f5e9';
-    reporterCell.style.borderLeft = '3px solid #4CAF50';
+    // Color scheme matching comment highlighting
+    const roleColors = {
+      'Project Lead': { border: '#9C27B0', bg: '#F3E5F5', badge: '#9C27B0' },
+      'Lead Developer': { border: '#2196F3', bg: '#E3F2FD', badge: '#2196F3' },
+      'Core Committer': { border: '#4CAF50', bg: '#E8F5E9', badge: '#4CAF50' },
+      'Emeritus Committer': { border: '#FF9800', bg: '#FFF3E0', badge: '#FF9800' },
+      'Component Maintainer': { border: '#009688', bg: '#E0F2F1', badge: '#009688' },
+      'Lead Tester': { border: '#E91E63', bg: '#FCE4EC', badge: '#E91E63' },
+      'Themes Committer': { border: '#00BCD4', bg: '#E0F7FA', badge: '#00BCD4' },
+      'default': { border: '#607D8B', bg: '#ECEFF1', badge: '#607D8B' }
+    };
+
+    const colors = roleColors[reporterRole] || roleColors['default'];
+
+    // Highlight the reporter cell with role-specific colors
+    reporterCell.style.backgroundColor = colors.bg;
+    reporterCell.style.borderLeft = `3px solid ${colors.border}`;
     reporterCell.style.paddingLeft = '8px';
-    
+
     // Add a badge after the reporter name
     let badge = reporterCell.querySelector('.wpt-reporter-badge');
     if (!badge) {
@@ -233,7 +247,7 @@ function highlightImportantReporter(contributorData = {}) {
       badge.className = 'wpt-reporter-badge';
       badge.style.cssText = `
         display: inline-block;
-        background: #4CAF50;
+        background: ${colors.badge};
         color: white;
         padding: 2px 6px;
         border-radius: 3px;
@@ -1066,19 +1080,19 @@ function getRoleColor(role) {
     return ROLE_COLORS[role] || '#757575';
   }
 
-  // Fallback colors if ROLE_COLORS not loaded
+  // Fallback colors if ROLE_COLORS not loaded (Material Design scheme)
   const colors = {
-    'Project Lead': '#e91e63',
-    'Lead Developer': '#9c27b0',
-    'Core Committer': '#3f51b5',
-    'Emeritus Committer': '#ff9800',
+    'Project Lead': '#9C27B0',
+    'Lead Developer': '#2196F3',
+    'Core Committer': '#4CAF50',
+    'Emeritus Committer': '#FF9800',
     'Component Maintainer': '#009688',
-    'Lead Tester': '#e91e63',
-    'Themes Committer': '#00bcd4',
-    'Individual Contributor': '#757575',
+    'Lead Tester': '#E91E63',
+    'Themes Committer': '#00BCD4',
+    'Individual Contributor': '#607D8B',
     'Reporter': '#795548'
   };
-  return colors[role] || '#757575';
+  return colors[role] || '#607D8B';
 }
 
 // Helper: Format milestone as link if it's a WordPress version
@@ -1715,10 +1729,24 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
           
           // Add badge for important reporters
           if (isImportant) {
+            // Color scheme matching comment highlighting
+            const roleColors = {
+              'Project Lead': { border: '#9C27B0', bg: '#F3E5F5', badge: '#9C27B0' },
+              'Lead Developer': { border: '#2196F3', bg: '#E3F2FD', badge: '#2196F3' },
+              'Core Committer': { border: '#4CAF50', bg: '#E8F5E9', badge: '#4CAF50' },
+              'Emeritus Committer': { border: '#FF9800', bg: '#FFF3E0', badge: '#FF9800' },
+              'Component Maintainer': { border: '#009688', bg: '#E0F2F1', badge: '#009688' },
+              'Lead Tester': { border: '#E91E63', bg: '#FCE4EC', badge: '#E91E63' },
+              'Themes Committer': { border: '#00BCD4', bg: '#E0F7FA', badge: '#00BCD4' },
+              'default': { border: '#607D8B', bg: '#ECEFF1', badge: '#607D8B' }
+            };
+
+            const colors = roleColors[isImportant] || roleColors['default'];
+
             const badge = document.createElement('span');
             badge.style.cssText = `
               display: inline-block;
-              background: #4CAF50;
+              background: ${colors.badge};
               color: white;
               padding: 2px 6px;
               border-radius: 3px;
