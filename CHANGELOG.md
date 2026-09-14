@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-09-14
+
+### Added - Open a ticket in the Contributor Toolkit
+
+#### Deep Link to the Desktop App
+- **New Button**: Quick Info now carries an "Open in Contributor Toolkit" button that hands the ticket to the Contributor Toolkit desktop app
+- **Deep Link Scheme**: Navigates to `wpct://ticket/<id>`, the single address the app answers ([WordPress/contributor-toolkit](https://github.com/WordPress/contributor-toolkit)). The app fills the ticket in and asks; it does not check anything out on its own
+- **Install Hint**: A small "Not opening? Install the Contributor Toolkit" line sits under the button, linking to the app's releases. The browser fires no event when a custom scheme has no handler, so the extension says so once instead of guessing with timers
+- **core.trac Only**: The button is hidden on meta.trac.wordpress.org, which reuses the same ticket numbers and would send the app to the wrong ticket
+
+#### Technical Implementation
+- **New Function**: `createToolkitLink(ticketId)` in `content/trac-sidebar.js`, rendered into the Quick Info box next to "View Full Description"
+- **Id Validation**: The href is built from the digits matched out of `.trac-id`, never from the raw page text
+- **No New Permissions**: Navigating to an external scheme needs none
+
 ## [1.7.0] - 2026-02-11
 
 ### Added - Configurable Sidebar Position
