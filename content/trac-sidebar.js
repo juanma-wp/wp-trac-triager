@@ -328,6 +328,83 @@ function createCollapsibleSection(sectionId, title, icon, defaultExpanded = true
 }
 
 // Helper: Get ticket summary information
+// --- Contributor Toolkit deep link -------------------------------------------
+// The desktop app answers exactly one address, wpct://ticket/<id>. Only core
+// Trac ids mean anything to it, and meta.trac reuses the same numbers, so the
+// link is offered on core.trac only: elsewhere it would open the wrong ticket.
+const TOOLKIT_TRAC_HOST = 'core.trac.wordpress.org';
+const TOOLKIT_RELEASES_URL = 'https://github.com/WordPress/contributor-toolkit/releases';
+
+// Builds the "Open in Contributor Toolkit" button plus the small line that
+// catches the case the browser cannot tell us about: no app registered for the
+// scheme, and therefore nothing happening on click.
+// Returns null when there is nothing to link to.
+function createToolkitLink(ticketId) {
+  if (window.location.hostname !== TOOLKIT_TRAC_HOST) {
+    return null;
+  }
+
+  // getTicketSummary() reads this off .trac-id, where it looks like "#62281".
+  // The href is built from the digits, never from the raw text.
+  const match = /^#?(\d+)$/.exec(String(ticketId || '').trim());
+  if (!match) {
+    debug('Toolkit link skipped: unusable ticket id', ticketId);
+    return null;
+  }
+  const id = match[1];
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'margin-bottom: 12px;';
+
+  const button = document.createElement('a');
+  button.href = `wpct://ticket/${id}`;
+  button.textContent = '🧰 Open in Contributor Toolkit';
+  button.title = `Hands ticket #${id} to the Contributor Toolkit desktop app`;
+  button.style.cssText = `
+    display: block;
+    font-size: 12px;
+    color: #1a4731;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 8px;
+    background: #e3f5ea;
+    border-radius: 4px;
+    text-align: center;
+    transition: background 0.2s;
+  `;
+  button.onmouseover = () => {
+    button.style.background = '#cfead9';
+    button.style.textDecoration = 'underline';
+  };
+  button.onmouseout = () => {
+    button.style.background = '#e3f5ea';
+    button.style.textDecoration = 'none';
+  };
+  wrapper.appendChild(button);
+
+  // Chrome fires no event when a custom scheme has no handler, so there is
+  // nothing to detect: say so once, quietly, instead of guessing with timers.
+  const hint = document.createElement('div');
+  hint.style.cssText = `
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    margin-top: 4px;
+  `;
+  hint.appendChild(document.createTextNode('Not opening? '));
+
+  const install = document.createElement('a');
+  install.href = TOOLKIT_RELEASES_URL;
+  install.target = '_blank';
+  install.rel = 'noopener noreferrer';
+  install.textContent = 'Install the Contributor Toolkit';
+  install.style.cssText = 'color: #2271b1;';
+  hint.appendChild(install);
+  wrapper.appendChild(hint);
+
+  return wrapper;
+}
+
 function getTicketSummary() {
   const summary = {};
 
@@ -1589,6 +1666,12 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
       viewDescLink.style.textDecoration = 'none';
     };
     summaryBox.appendChild(viewDescLink);
+
+    // Hand-off to the desktop app, on core Trac only.
+    const toolkitLink = createToolkitLink(ticketSummary.id);
+    if (toolkitLink) {
+      summaryBox.appendChild(toolkitLink);
+    }
 
     // Summary items
     const summaryItems = [
