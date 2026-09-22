@@ -1,15 +1,20 @@
 {
   "manifest_version": 3,
   "name": "WP Trac Triager",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Enhance WordPress Trac ticket triage with visual highlights, keyword explanations, and component maintainer info",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
     "https://core.trac.wordpress.org/*",
-    "https://meta.trac.wordpress.org/*"
+    "https://meta.trac.wordpress.org/*",
+    "https://api.wordpress.org/*",
+    "https://make.wordpress.org/*"
   ],
+  "background": {
+    "service_worker": "background/releases.js"
+  },
   "content_scripts": [
     {
       "matches": [

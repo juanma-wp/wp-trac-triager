@@ -44,3 +44,50 @@
     display: none !important;
   }
 }
+
+/* Automatically discovered next major release. */
+.wpt-release-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: #f0f4ff;
+  border-left: 3px solid #4f46e5;
+  border-radius: 4px;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.wpt-release-version {
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 700;
+}
+.wpt-release-milestone {
+  border-top: 1px solid #d0d7ff;
+  padding-top: 8px;
+  font-weight: 600;
+}
+.wpt-release-note,
+.wpt-release-checked {
+  color: #4b5563;
+}
+.wpt-release-checked {
+  font-size: 11px;
+}
+.wpt-release-box a {
+  color: #4338ca;
+}
+.wpt-release-box button {
+  align-self: flex-start;
+  padding: 5px 9px;
+  border: 1px solid #c7c9dd;
+  border-radius: 4px;
+  background: white;
+  color: #4338ca;
+  cursor: pointer;
+}
+.wpt-release-box button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

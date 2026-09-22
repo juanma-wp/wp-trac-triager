@@ -30,7 +30,7 @@ A Chrome extension that enhances the WordPress Trac ticket triage workflow with 
 
 ### 📚 Rich Information Sections
 1. **Quick Info** - Ticket summary, reporter, milestone, priority, component
-2. **WordPress Release Schedule** - Next milestone dates with countdown timer
+2. **WordPress Release Schedule** - Automatically follows the next officially announced major version, with Beta, RC, and final release dates. Checks official sources when opening a ticket (24-hour cache), preserves tentative date ranges, and provides a manual refresh and offline status.
 3. **Recent Comments** - Last 3 comments with role context
 4. **Milestone History** - Visual timeline of all milestone changes
 5. **Keyword Change History** - Complete timeline of keyword additions/removals
@@ -178,6 +178,8 @@ Edit `data/keyword-data.js` based on https://make.wordpress.org/core/handbook/co
 - **Host Permissions:**
   - `https://core.trac.wordpress.org/*`
   - `https://meta.trac.wordpress.org/*`
+  - `https://api.wordpress.org/*` (published WordPress versions)
+  - `https://make.wordpress.org/*` (upcoming major versions and calendars)
 - **Content Script Injection:** Runs on `/ticket/*` pages only
 
 ## Browser Compatibility

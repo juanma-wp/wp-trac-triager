@@ -1317,6 +1317,69 @@ function getSectionOrder(config) {
   return orderMap;
 }
 
+// Fetches only release metadata; ticket content is never sent to the sources.
+async function updateReleaseBox(box, force = false) {
+  box.setAttribute('aria-busy', 'true');
+  const oldButton = box.querySelector('button');
+  if (oldButton) oldButton.disabled = true;
+  if (!box.childNodes.length) box.textContent = 'Checking the next major release…';
+  let release;
+  try {
+    release = await chrome.runtime.sendMessage({ type: 'get-next-major-release', force });
+    if (!release) throw new Error('No release response');
+  } catch (_error) {
+    release = { status: 'unavailable', stale: true };
+  }
+  box.replaceChildren();
+  box.setAttribute('aria-busy', 'false');
+  const addText = (text, className = '') => {
+    const element = document.createElement('div');
+    element.className = className;
+    element.textContent = text;
+    box.appendChild(element);
+  };
+  if (release.version) {
+    addText(`WordPress ${release.version}`, 'wpt-release-version');
+    try {
+      const milestones = globalThis.WPRelease.parseSchedule(release.html || '', release.version);
+      const final = milestones.find(item => item.type === 'final');
+      addText(`Planned release: ${final.label}`);
+      const next = globalThis.WPRelease.nextMilestone(milestones);
+      if (next) {
+        const days = globalThis.WPRelease.daysUntil(next.start);
+        const timing = days > 0 ? `in ${days} days` : next.start === next.end ? 'today' : 'within the planned window';
+        addText(`Next milestone: ${next.name}`, 'wpt-release-milestone');
+        addText(`${next.label} (${timing})`);
+      } else {
+        addText('The planned dates have passed. Waiting for an updated schedule or release confirmation.', 'wpt-release-note');
+      }
+    } catch (_error) {
+      addText('Calendar unavailable. Check the official schedule for dates.', 'wpt-release-note');
+    }
+  } else {
+    addText(release.status === 'unannounced' ?
+      'No next major release has been announced in the official release pages yet.' :
+      'Unable to check the next major release. Please try again.', 'wpt-release-note');
+  }
+  if (release.stale) {
+    addText('Could not refresh. Any information shown may be out of date.', 'wpt-release-note');
+  }
+  if (release.checkedAt) {
+    addText(`Last checked: ${new Date(release.checkedAt).toLocaleString()}`, 'wpt-release-checked');
+  }
+  const link = document.createElement('a');
+  link.href = release.url || 'https://make.wordpress.org/core/';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = release.version ? 'Full official calendar ↗' : 'WordPress Core releases ↗';
+  box.appendChild(link);
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.textContent = 'Refresh release';
+  refresh.addEventListener('click', () => updateReleaseBox(box, true));
+  box.appendChild(refresh);
+}
+
 // Step 4: Create keyword sidebar
 function createKeywordSidebar(contributorData = {}) {
   debug('Creating keyword sidebar...');
@@ -1867,151 +1930,18 @@ function continueCreatingSidebar(contributorData, config, sectionOrder) {
   // Append sticky header to content (it contains closed banner and Quick Info)
   content.appendChild(stickyHeader);
 
-  // Section 2: Release Schedule
+  // Section 2: Automatically track the next announced WordPress major.
   if (isSectionEnabled('release-schedule', config)) {
-    const targetVersion = config.targetWpVersion || '7.0';
-    if (typeof WP_RELEASE_SCHEDULES !== 'undefined' && WP_RELEASE_SCHEDULES[targetVersion]) {
-      const schedule = WP_RELEASE_SCHEDULES[targetVersion];
-      const nextMilestone = getNextMilestone(targetVersion);
-
-      const releaseSection = createCollapsibleSection('release-schedule', `WordPress ${targetVersion} Release`, '📅', true);
-
-      const releaseBox = document.createElement('div');
-      releaseBox.style.cssText = `
-        padding: 12px;
-        background: #f0f4ff;
-        border-left: 3px solid #4f46e5;
-        border-radius: 4px;
-      `;
-
-      // Final release date
-      const finalReleaseDiv = document.createElement('div');
-      finalReleaseDiv.style.cssText = `
-        font-size: 12px;
-        margin-bottom: 12px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #d0d7ff;
-      `;
-
-      const finalLabel = document.createElement('div');
-      finalLabel.style.cssText = `
-        color: #6b7280;
-        font-weight: 500;
-        margin-bottom: 4px;
-      `;
-      finalLabel.textContent = 'Stable Release:';
-
-      const finalValue = document.createElement('div');
-      finalValue.style.cssText = `
-        color: #4f46e5;
-        font-weight: 700;
-        font-size: 13px;
-      `;
-      finalValue.textContent = formatDate(schedule.finalRelease);
-
-      finalReleaseDiv.appendChild(finalLabel);
-      finalReleaseDiv.appendChild(finalValue);
-      releaseBox.appendChild(finalReleaseDiv);
-
-      // Next milestone
-      if (nextMilestone) {
-        const days = daysUntil(nextMilestone.date);
-
-        const nextMilestoneDiv = document.createElement('div');
-        nextMilestoneDiv.style.cssText = `
-          font-size: 12px;
-        `;
-
-        const nextLabel = document.createElement('div');
-        nextLabel.style.cssText = `
-          color: #6b7280;
-          font-weight: 500;
-          margin-bottom: 4px;
-        `;
-        nextLabel.textContent = 'Next Release:';
-
-        const nextValue = document.createElement('div');
-        nextValue.style.cssText = `
-          color: #1f2937;
-          font-weight: 600;
-          font-size: 13px;
-        `;
-
-        let daysText;
-        if (days === 0) {
-          daysText = 'Today';
-        } else if (days === 1) {
-          daysText = 'Tomorrow';
-        } else if (days < 0) {
-          daysText = `${Math.abs(days)} days ago`;
-        } else {
-          daysText = `in ${days} days`;
-        }
-
-        nextValue.innerHTML = `<strong>${nextMilestone.name}</strong> — ${formatDate(nextMilestone.date)} <span style="color: #6b7280; font-weight: 500;">(${daysText})</span>`;
-
-        nextMilestoneDiv.appendChild(nextLabel);
-        nextMilestoneDiv.appendChild(nextValue);
-        releaseBox.appendChild(nextMilestoneDiv);
-      } else {
-        // All milestones passed
-        const completedDiv = document.createElement('div');
-        completedDiv.style.cssText = `
-          font-size: 12px;
-          color: #059669;
-          font-weight: 600;
-        `;
-        completedDiv.textContent = '✓ All milestones completed';
-        releaseBox.appendChild(completedDiv);
-      }
-
-      // Add links
-      const linksDiv = document.createElement('div');
-      linksDiv.style.cssText = `
-        margin-top: 12px;
-        padding-top: 10px;
-        border-top: 1px solid #d0d7ff;
-        font-size: 11px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      `;
-
-      const releasePageLink = document.createElement('a');
-      releasePageLink.href = schedule.releasePageUrl;
-      releasePageLink.target = '_blank';
-      releasePageLink.textContent = '📋 Release Roadmap';
-      releasePageLink.style.cssText = `
-        color: #4f46e5;
-        text-decoration: none;
-        font-weight: 500;
-      `;
-      releasePageLink.onmouseover = () => releasePageLink.style.textDecoration = 'underline';
-      releasePageLink.onmouseout = () => releasePageLink.style.textDecoration = 'none';
-
-      const releaseSquadLink = document.createElement('a');
-      releaseSquadLink.href = schedule.releaseSquadUrl;
-      releaseSquadLink.target = '_blank';
-      releaseSquadLink.textContent = '👥 Release Squad';
-      releaseSquadLink.style.cssText = `
-        color: #4f46e5;
-        text-decoration: none;
-        font-weight: 500;
-      `;
-      releaseSquadLink.onmouseover = () => releaseSquadLink.style.textDecoration = 'underline';
-      releaseSquadLink.onmouseout = () => releaseSquadLink.style.textDecoration = 'none';
-
-      linksDiv.appendChild(releasePageLink);
-      linksDiv.appendChild(releaseSquadLink);
-      releaseBox.appendChild(linksDiv);
-
-      releaseSection.contentWrapper.appendChild(releaseBox);
-      sectionsToRender.push({
-        id: 'release-schedule',
-        element: releaseSection.container,
-        order: sectionOrder['release-schedule'] || 1
-      });
-    }
+    const releaseSection = createCollapsibleSection('release-schedule', 'Next WordPress Major', '📅', true);
+    const releaseBox = document.createElement('div');
+    releaseBox.className = 'wpt-release-box';
+    releaseSection.contentWrapper.appendChild(releaseBox);
+    sectionsToRender.push({
+      id: 'release-schedule',
+      element: releaseSection.container,
+      order: sectionOrder['release-schedule'] ?? 1
+    });
+    updateReleaseBox(releaseBox);
   }
 
   // Section 3: Recent Comments

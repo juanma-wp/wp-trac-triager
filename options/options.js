@@ -12,7 +12,6 @@ const defaultSidebarSections = [
 
 const defaultConfig = {
   highlightComments: true,
-  targetWpVersion: '7.0',
   sidebarPosition: 'right',
   sidebarSections: defaultSidebarSections
 };
@@ -25,8 +24,11 @@ function loadSettings() {
     // Set toggle switches
     document.getElementById('highlightComments').checked = config.highlightComments !== false;
 
-    // Set target WordPress version
-    document.getElementById('targetWpVersion').value = config.targetWpVersion || '7.0';
+    // Remove the obsolete fixed target while preserving all other preferences.
+    if (Object.prototype.hasOwnProperty.call(config, 'targetWpVersion')) {
+      delete config.targetWpVersion;
+      chrome.storage.sync.set({ config });
+    }
 
     // Set sidebar position
     document.getElementById('sidebarPosition').value = config.sidebarPosition || 'right';
@@ -215,7 +217,7 @@ function saveSettings() {
     const config = result.config || defaultConfig;
 
     config.highlightComments = document.getElementById('highlightComments').checked;
-    config.targetWpVersion = document.getElementById('targetWpVersion').value;
+    delete config.targetWpVersion;
     config.sidebarPosition = document.getElementById('sidebarPosition').value;
 
     // Sidebar sections are saved automatically on change, so just keep existing

@@ -171,7 +171,7 @@ Customizable Workflow
 
 • Manifest V3 compliant - Built for the modern web
 • Works on core.trac.wordpress.org and meta.trac.wordpress.org
-• Minimal permissions required - Only storage and Trac access
+• Scoped permissions - Storage, Trac access, and official WordPress release sources
 • Privacy-focused - Zero data collection or tracking
 • Open source (MIT License) - Transparent and community-driven
 • JSON-based keyword data - Easy for contributors to update
@@ -225,6 +225,8 @@ Enhance WordPress Trac ticket pages with visual timelines, role badges, and cont
 
 - **storage**: Save user settings (sidebar section order, visibility toggles) and sync preferences across devices
 - **Host permissions (core.trac.wordpress.org and meta.trac.wordpress.org)**: Read ticket data to display keyword timelines, milestone history, role badges, and maintainer information
+- **Host permission (api.wordpress.org)**: Read the latest stable version to exclude already released major versions
+- **Host permission (make.wordpress.org)**: Discover announced major versions and retrieve their public calendars; no ticket data or authentication cookies are sent
 
 **Privacy Policy URL:**
 ```

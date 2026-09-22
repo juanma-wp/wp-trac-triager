@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-09-22
+
+### Added
+- Automatically discover the next announced WordPress major version from official sources, excluding maintenance releases.
+- Display the next Beta, RC, or final milestone and the planned release date, preserving tentative date ranges.
+- Cache release information for 24 hours, with a manual refresh button and a visible last-check time.
+- Retain previously verified information with a stale-data notice when sources are unavailable.
+
+### Changed
+- Replace the fixed WordPress 7.0 calendar and version selector with automatic release tracking.
+- Request access to `api.wordpress.org` and `make.wordpress.org` for public release metadata; ticket content and authentication cookies are not sent.
+- Update the privacy policy and publishing permission justifications.
+
+### Validation
+- 14 automated tests cover major-version discovery, date ranges, cache refresh, offline fallback, and cycle transitions.
+- Verified in Chromium with real calendars and live official sources, and manually tested by the maintainer.
+
 ## [1.8.0] - 2026-09-14
 
 ### Added - Open a ticket in the Contributor Toolkit
